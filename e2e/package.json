@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "lint": "node --check visual.spec.js && node --check playwright.config.js",
+    "typecheck": "npm run lint"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.2"
+  }
+}

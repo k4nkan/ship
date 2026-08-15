@@ -1,0 +1,13 @@
+.env
+
+frontend/node_modules/
+frontend/dist/
+
+backend/.venv/
+backend/__pycache__/
+backend/app/**/__pycache__/
+backend/data/*.json
+
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
