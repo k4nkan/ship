@@ -15,3 +15,8 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 app.include_router(posts_router)
+
+
+@app.get("/health")
+def root_health() -> dict[str, bool]:
+    return {"ok": True}

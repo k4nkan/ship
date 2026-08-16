@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 class PostInput(BaseModel):
@@ -10,14 +10,21 @@ class PostInput(BaseModel):
 
 class PostResult(BaseModel):
     gyan: int
-    level: str
+    gyanLevel: str = Field(validation_alias=AliasChoices("gyanLevel", "level"))
     reaction: str
     facebookText: str
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AdventurePost(PostInput, PostResult):
     id: str
     createdAt: str
+    imagePath: str = ""
+    resultImagePath: str | None = None
+    imageUrl: str = ""
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class PostSummary(BaseModel):
@@ -25,3 +32,10 @@ class PostSummary(BaseModel):
     totalGyan: int
     lastPost: AdventurePost | None
     currentSpeed: int
+
+
+class JourneyState(BaseModel):
+    totalGyan: int
+    progress: float
+    speed: int
+    updatedAt: str

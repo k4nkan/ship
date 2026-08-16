@@ -1,13 +1,9 @@
-const previousGyanKey = "adventure.previousGyan";
+const previousProgressKey = "adventure.previousProgress";
 
-export function getPreviousGyan(): number {
-  return Number(localStorage.getItem(previousGyanKey) ?? 0);
+export function getPreviousProgress(): number {
+  return Number(localStorage.getItem(previousProgressKey) ?? 0);
 }
 
-export function savePreviousGyan(totalGyan: number): void {
-  localStorage.setItem(previousGyanKey, String(totalGyan));
-}
-
-export function clearPreviousGyan(): void {
-  localStorage.removeItem(previousGyanKey);
+export function savePreviousProgress(progress: number): void {
+  localStorage.setItem(previousProgressKey, String(progress));
 }

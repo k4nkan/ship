@@ -1,103 +1,172 @@
-# 帰るまでが冒険 MVP
+# ship
 
-投稿でGYANを獲得し、累計GYANに応じて地図上の現在地が進むローカルMVPです。
+投稿写真とコメントからGYANを判定し、GYANで船の速度を上げて地図上の進捗を更新するMVPです。
 
-## 構成
+## システム概要
 
-```txt
-frontend/           React + Vite + TypeScript
-backend/            FastAPI
-e2e/                Playwright
-database/schema.sql Supabase SQL Editor用
+```text
+React + Vite
+  -> FastAPI
+    -> Supabase Storage
+    -> OpenAI / Mock
+    -> Supabase Database
 ```
 
-rootには全体操作用の `Makefile`、README、`.env.example` だけを置きます。`.env.sample` は `.env.example` と役割が重複するため置いていません。
+Supabase未設定時は、ローカル開発用に `backend/data/posts.json` へ保存します。
+
+## アーキテクチャ
+
+- frontend: React画面、画像リサイズ/WebP変換、FastAPI呼び出し
+- backend: API、Supabase SDK、OpenAI/Mock GYAN判定、投稿保存
+- journey: デフォルト速度で常に進み、累計GYANで速度が加算される
+- database: Supabase SQL Editorで実行するschema
+- e2e: Playwrightによる投稿フロー確認
+
+## ディレクトリ構成
+
+```text
+frontend/           React + Vite + TypeScript
+backend/            FastAPI
+database/schema.sql Supabase Database schema
+e2e/                Playwright
+```
+
+## 必要環境
+
+- Node.js
+- Python 3.13
+- make
+- Supabase project
+- OpenAI API key optional
 
 ## セットアップ
 
 ```sh
 make install
 cp .env.example .env
+```
+
+`.env` はrootに置きます。
+
+## .env
+
+```env
+PORT=8000
+ALLOWED_ORIGIN=http://127.0.0.1:5173
+DATA_FILE=backend/data/posts.json
+
+VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_MAP_API_KEY=
+VITE_MAP_STYLE_URL=https://api.maptiler.com/maps/streets-v2/style.json?key={key}
+
+OPENAI_API_KEY=
+OPENAI_ENABLED=false
+OPENAI_MODEL=gpt-4o-mini
+
+SUPABASE_URL=
+SUPABASE_SECRET_KEY=
+SUPABASE_STORAGE_BUCKET=
+```
+
+`SUPABASE_SECRET_KEY` はbackend専用です。`VITE_` を付けたり、frontendへ渡したりしないでください。
+
+## ローカル起動
+
+```sh
 make dev
 ```
 
 - frontend: `http://127.0.0.1:5173/`
-- backend: `http://127.0.0.1:4173/api/health`
+- backend: `http://127.0.0.1:8000/health`
 
-## 環境変数
-
-ブラウザへ渡す値はVite仕様に合わせて `VITE_` prefixを付けます。
-frontend/backendともrootの `.env` を読みます。
-
-```sh
-VITE_API_BASE_URL=http://127.0.0.1:4173
-VITE_MAP_API_KEY=
-VITE_MAP_STYLE_URL=https://api.maptiler.com/maps/streets-v2/style.json?key={key}
-```
-
-`VITE_MAP_API_KEY` が空ならOSMラスタ地図へフォールバックします。ブラウザで使う地図キーは公開される前提です。
-
-## 画面
-
-- `/` : マップ画面
-- `/post` : 投稿作成画面
-- `/post?team=A` : 班Aを初期選択した投稿作成画面
-- `/result` : 直近投稿の生成結果画面
-
-## API
-
-- `GET /api/health`
-- `GET /api/posts`
-- `POST /api/posts`
-- `POST /api/gyan/generate`
-- `DELETE /api/posts`
-
-## データの流れ
-
-1. frontendで班、ニックネーム、写真、コメントを入力
-2. `POST /api/posts` でbackendへ送信
-3. backendのMock `generate_post_result()` がGYAN、リアクション、Facebook文章を生成
-4. backendが `backend/data/posts.json` に保存
-5. frontendが `GET /api/posts` で累計GYANと直近投稿を取得
-6. MapLibreのピン位置を累計GYANから計算
-
-ニックネームと投稿前GYANだけは入力補助とアニメーション用にlocalStorageへ保存します。
-
-## Mockと外部APIの切り替え
-
-GYAN判定は `backend/app/services/gyan.py` に分離しています。OpenAI APIへ置き換える場合は、この関数を差し替えます。
-
-投稿保存は `backend/app/services/post_store.py` に分離しています。Supabaseへ置き換える場合は、`JsonPostStore` をSupabase実装へ差し替えます。
-
-Supabaseの初期SQLは `database/schema.sql` をSQL Editorで実行します。
-
-## コマンド
+## Makeコマンド
 
 ```sh
 make install
 make dev
-make format
+make frontend
+make backend
+make test
 make lint
 make typecheck
 make build
-make test-e2e
+make check
 make clean
+```
+
+## API
+
+- `GET /health`
+- `GET /api/health`
+- `GET /api/posts`
+- `GET /api/posts/{id}`
+- `POST /api/posts`
+- `DELETE /api/posts`
+- `GET /api/journey`
+- `POST /api/gyan/generate`
+
+## Supabase設定
+
+1. Supabaseでprojectを作成
+2. SQL Editorで `database/schema.sql` を実行
+3. Storage bucketを作成
+4. `.env` に以下を設定
+
+```env
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_SECRET_KEY=<your-supabase-secret-key>
+SUPABASE_STORAGE_BUCKET=<your-bucket-name>
+```
+
+Databaseは `posts` と `journey_state` を使います。RLSは有効で、`service_role` のみアクセス可能です。
+
+`journey_state` は現在の進捗と速度を保持します。デフォルト速度は `20 GYAN/時` で、累計GYANに応じてbackend側で加速します。
+
+Storage bucketはMVPではbackend経由でアップロードします。ResultPageで画像を表示するため、backendは署名付きURLを返します。
+
+## OpenAI / Mock切り替え
+
+デフォルトはMockです。
+
+```env
+OPENAI_ENABLED=false
+```
+
+実APIを使う場合:
+
+```env
+OPENAI_API_KEY=<your-openai-api-key>
+OPENAI_ENABLED=true
+OPENAI_MODEL=gpt-4o-mini
+```
+
+AIは `small` / `medium` / `large` / `huge` のランクだけを返し、GYAN数値はbackendで固定変換します。
+
+## テスト
+
+```sh
 make check
 ```
 
-個別起動:
+実行内容:
 
-```sh
-make -C backend dev
-make -C frontend dev
-```
+- frontend typecheck/build
+- backend compile
+- e2e Playwright
 
 ## 未実装
 
-- Supabase実接続
-- OpenAI API実接続
-- Realtime
+- Signed Upload URL方式
+- Supabase Realtime
 - 認証
+- 生成結果画像
+- Three.js / GSAP
 - 投稿一覧
-- 画像のSupabase Storage保存/WebP変換
-- Three.js/GSAPによる3D演出
+
+## デプロイ想定
+
+- frontend: static hosting
+- backend: FastAPIを常駐実行できる環境
+- database/storage: Supabase
+
+本番では `ALLOWED_ORIGIN` をfrontendの公開URLへ変更します。

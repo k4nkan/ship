@@ -1,9 +1,8 @@
 import type { StyleSpecification } from "maplibre-gl";
+import { env } from "../../lib/env";
 
-const mapApiKey = import.meta.env.VITE_MAP_API_KEY ?? "";
-const mapStyleUrl =
-  import.meta.env.VITE_MAP_STYLE_URL ??
-  "https://api.maptiler.com/maps/streets-v2/style.json?key={key}";
+const mapApiKey = env.mapApiKey;
+const mapStyleUrl = env.mapStyleUrl;
 
 export function getMapStyle(): StyleSpecification | string {
   if (mapApiKey) {

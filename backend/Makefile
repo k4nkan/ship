@@ -1,5 +1,6 @@
 PYTHON := .venv/bin/python
 PIP := .venv/bin/pip
+PORT ?= 8000
 
 .venv:
 	python3 -m venv .venv
@@ -8,7 +9,7 @@ install: .venv
 	$(PIP) install -r requirements.txt
 
 dev: .venv
-	$(PYTHON) -m uvicorn app.main:app --host 127.0.0.1 --port 4173 --reload
+	$(PYTHON) -m uvicorn app.main:app --host 127.0.0.1 --port $(PORT) --reload
 
 build: .venv
 	$(PYTHON) -m compileall app

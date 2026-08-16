@@ -8,8 +8,8 @@ test("GYAN posting flow updates the map", async ({ page }) => {
     }
   });
 
-  await page.request.delete("http://127.0.0.1:4173/api/posts");
-  await page.goto("http://127.0.0.1:5173/");
+  await page.request.delete("http://127.0.0.1:8010/api/posts");
+  await page.goto("http://127.0.0.1:5174/");
   await page.evaluate(() => {
     localStorage.clear();
     sessionStorage.clear();
@@ -18,9 +18,13 @@ test("GYAN posting flow updates the map", async ({ page }) => {
 
   await expect(page.locator("#map")).toBeVisible();
   await expect(page.locator("#current-gyan")).toHaveText("0");
+  await expect(page.locator("#current-area")).toBeVisible();
+  await expect(page.getByRole("button", { name: "現在地へ移動" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "GYANを送る" })).toBeVisible();
 
-  await page.goto("http://127.0.0.1:5173/post?team=A");
+  await page.goto("http://127.0.0.1:5174/post?team=A");
   await expect(page.locator("#team")).toHaveValue("A");
+  await expect(page.getByRole("button", { name: "カメラを起動" })).toBeVisible();
   await page.locator("#nickname").fill("kanta");
   await page.locator("#comment").fill("班で新しいプロトタイプを作った");
   await page.locator("#photo").setInputFiles({
@@ -36,9 +40,11 @@ test("GYAN posting flow updates the map", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/result$/);
   await expect(page.locator("#result-content")).toContainText("獲得GYAN");
+  await expect(page.getByLabel("投稿画像プレビュー")).toBeVisible();
+  await expect(page.getByRole("button", { name: "投稿画像を保存" })).toBeVisible();
   await page.getByRole("button", { name: "マップに戻る" }).click();
 
-  await expect(page).toHaveURL("http://127.0.0.1:5173/");
+  await expect(page).toHaveURL("http://127.0.0.1:5174/");
   await expect(page.locator("#current-gyan")).not.toHaveText("0");
   expect(errors).toEqual([]);
 });

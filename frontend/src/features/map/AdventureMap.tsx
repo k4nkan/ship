@@ -6,17 +6,17 @@ import maplibregl, {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { getMapStyle } from "./mapStyle";
 import {
-  GOAL_COORDINATE,
   ROUTE_COORDINATES,
+  ROUTE_MARKERS,
   START_COORDINATE,
-  getRouteProgress,
   getTraveledRoute,
   sampleRouteCoordinate,
 } from "./route";
 
 type AdventureMapProps = {
-  totalGyan: number;
-  previousGyan: number;
+  progress: number;
+  previousProgress: number;
+  recenterRequest: number;
 };
 
 function makeLineString(coordinates: [number, number][]) {
@@ -50,7 +50,11 @@ function setSourceData(
   source?.setData(data);
 }
 
-export function AdventureMap({ totalGyan, previousGyan }: AdventureMapProps) {
+export function AdventureMap({
+  progress,
+  previousProgress,
+  recenterRequest,
+}: AdventureMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
 
@@ -60,8 +64,8 @@ export function AdventureMap({ totalGyan, previousGyan }: AdventureMapProps) {
     const map = new maplibregl.Map({
       container: containerRef.current,
       attributionControl: false,
-      center: [138.7, 40.1],
-      zoom: 4.5,
+      center: [138, 55],
+      zoom: 2.8,
       style: getMapStyle(),
     });
     mapRef.current = map;
@@ -79,10 +83,7 @@ export function AdventureMap({ totalGyan, previousGyan }: AdventureMapProps) {
         type: "geojson",
         data: {
           type: "FeatureCollection",
-          features: [
-            { label: "極北", coordinate: START_COORDINATE },
-            { label: "立命館", coordinate: GOAL_COORDINATE },
-          ].map((point) => ({
+          features: ROUTE_MARKERS.map((point) => ({
             type: "Feature" as const,
             properties: { label: point.label },
             geometry: { type: "Point" as const, coordinates: point.coordinate },
@@ -91,7 +92,10 @@ export function AdventureMap({ totalGyan, previousGyan }: AdventureMapProps) {
       });
       map.addSource("current-point", {
         type: "geojson",
-        data: makePoint(START_COORDINATE),
+        data: {
+          ...makePoint(START_COORDINATE),
+          properties: { label: "現在地" },
+        },
       });
 
       map.addLayer({
@@ -139,14 +143,40 @@ export function AdventureMap({ totalGyan, previousGyan }: AdventureMapProps) {
         },
       });
       map.addLayer({
+        id: "current-point-halo",
+        type: "circle",
+        source: "current-point",
+        paint: {
+          "circle-radius": 24,
+          "circle-color": "#bfdbfe",
+          "circle-opacity": 0.72,
+        },
+      });
+      map.addLayer({
         id: "current-point",
         type: "circle",
         source: "current-point",
         paint: {
-          "circle-radius": 11,
-          "circle-color": "#dc2626",
+          "circle-radius": 13,
+          "circle-color": "#2563eb",
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": 3,
+        },
+      });
+      map.addLayer({
+        id: "current-point-label",
+        type: "symbol",
+        source: "current-point",
+        layout: {
+          "text-field": ["get", "label"],
+          "text-size": 13,
+          "text-offset": [0, -1.7],
+          "text-anchor": "bottom",
+        },
+        paint: {
+          "text-color": "#1d4ed8",
+          "text-halo-color": "#ffffff",
+          "text-halo-width": 2,
         },
       });
     });
@@ -161,41 +191,50 @@ export function AdventureMap({ totalGyan, previousGyan }: AdventureMapProps) {
     const map = mapRef.current;
     if (!map) return;
 
-    const updateMap = (gyan: number) => {
-      const progress = getRouteProgress(gyan);
+    const updateMap = (routeProgress: number) => {
       setSourceData(
         map,
         "route-progress",
-        makeLineString(getTraveledRoute(progress)),
+        makeLineString(getTraveledRoute(routeProgress)),
       );
-      setSourceData(
-        map,
-        "current-point",
-        makePoint(sampleRouteCoordinate(progress)),
-      );
+      setSourceData(map, "current-point", {
+        ...makePoint(sampleRouteCoordinate(routeProgress)),
+        properties: { label: "現在地" },
+      });
     };
 
     if (!map.isStyleLoaded()) {
-      map.once("load", () => updateMap(totalGyan));
+      map.once("load", () => updateMap(progress));
       return;
     }
 
     const startedAt = performance.now();
-    const durationMs = previousGyan === totalGyan ? 0 : 900;
+    const durationMs = previousProgress === progress ? 0 : 900;
 
     const tick = (time: number) => {
-      const progress =
+      const animationProgress =
         durationMs === 0 ? 1 : Math.min(1, (time - startedAt) / durationMs);
-      const eased = 1 - (1 - progress) ** 3;
-      updateMap(previousGyan + (totalGyan - previousGyan) * eased);
+      const eased = 1 - (1 - animationProgress) ** 3;
+      updateMap(previousProgress + (progress - previousProgress) * eased);
 
-      if (progress < 1) {
+      if (animationProgress < 1) {
         requestAnimationFrame(tick);
       }
     };
 
     requestAnimationFrame(tick);
-  }, [previousGyan, totalGyan]);
+  }, [previousProgress, progress]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || recenterRequest === 0) return;
+
+    map.flyTo({
+      center: sampleRouteCoordinate(progress),
+      zoom: map.getZoom(),
+      duration: 700,
+    });
+  }, [progress, recenterRequest]);
 
   return (
     <div

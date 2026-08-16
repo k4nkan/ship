@@ -1,15 +1,34 @@
-export const START_COORDINATE: [number, number] = [141.9363, 45.5231];
+export const START_COORDINATE: [number, number] = [135, 85];
 export const GOAL_COORDINATE: [number, number] = [135.5613416, 34.8096024];
-export const GYAN_GOAL = 1000;
 
-export const ROUTE_COORDINATES: [number, number][] = [
-  START_COORDINATE,
-  [140.9, 43.2],
-  [139.4, 40.4],
-  [138.1, 38.0],
-  [136.9, 35.7],
-  GOAL_COORDINATE,
+export type RouteSpot = {
+  label: string;
+  coordinate: [number, number];
+};
+
+export const ROUTE_SPOTS: RouteSpot[] = [
+  { label: "北極点", coordinate: START_COORDINATE },
+  { label: "北極海", coordinate: [138, 76] },
+  { label: "ロシア", coordinate: [142.7333, 46.9641] },
+  { label: "オホーツク海", coordinate: [144.5, 50.5] },
+  { label: "北海道", coordinate: [141.3545, 43.0618] },
+  { label: "東京", coordinate: [139.7671, 35.6812] },
+  { label: "富士山", coordinate: [138.7274, 35.3606] },
+  { label: "立命館", coordinate: GOAL_COORDINATE },
 ];
+
+export const ROUTE_MARKERS: RouteSpot[] = [
+  ROUTE_SPOTS[0],
+  ROUTE_SPOTS[2],
+  ROUTE_SPOTS[4],
+  ROUTE_SPOTS[5],
+  ROUTE_SPOTS[6],
+  ROUTE_SPOTS[7],
+];
+
+export const ROUTE_COORDINATES: [number, number][] = ROUTE_SPOTS.map(
+  (spot) => spot.coordinate,
+);
 
 type RouteSegment = {
   start: [number, number];
@@ -35,10 +54,6 @@ function createRouteSegments(): RouteSegment[] {
 
 const routeSegments = createRouteSegments();
 const routeLength = routeSegments.at(-1)?.totalLength ?? 0;
-
-export function getRouteProgress(totalGyan: number): number {
-  return Math.max(0, Math.min(1, totalGyan / GYAN_GOAL));
-}
 
 export function sampleRouteCoordinate(progress: number): [number, number] {
   const target = progress * routeLength;

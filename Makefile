@@ -9,6 +9,12 @@ dev:
 	$(MAKE) -C frontend dev & \
 	wait
 
+frontend:
+	$(MAKE) -C frontend dev
+
+backend:
+	$(MAKE) -C backend dev
+
 build:
 	$(MAKE) -C frontend build
 	$(MAKE) -C backend build
@@ -28,6 +34,8 @@ typecheck:
 
 test-e2e:
 	$(MAKE) -C e2e test
+
+test: test-e2e
 
 clean:
 	$(MAKE) -C frontend clean
