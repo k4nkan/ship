@@ -146,7 +146,6 @@ class SupabasePostStore:
         try:
             response = self.client.table("posts").insert(payload).execute()
             post = self._row_to_post((response.data or [payload])[0])
-            self._sync_journey_state()
             return post
         except Exception:
             logger.exception("Supabase post save failed")
@@ -177,17 +176,24 @@ class SupabasePostStore:
         )
 
     def get_journey_state(self, total_gyan: int | None = None) -> JourneyState:
-        if total_gyan is None:
-            total_gyan = sum(post.gyan for post in self.list_posts())
-
         state = self._fetch_journey_state()
         progress = advance_progress(
             state.progress,
             state.speed,
             parse_datetime(state.updatedAt),
         )
-        speed = calculate_speed(total_gyan)
-        return self._upsert_journey_state(total_gyan, speed, progress)
+        resolved_total_gyan = state.totalGyan if total_gyan is None else total_gyan
+        speed = calculate_speed(resolved_total_gyan)
+
+        if total_gyan is None:
+            return JourneyState(
+                totalGyan=resolved_total_gyan,
+                progress=progress,
+                speed=speed,
+                updatedAt=datetime.now(timezone.utc).isoformat(),
+            )
+
+        return self._upsert_journey_state(resolved_total_gyan, speed, progress)
 
     def _upload_photo(self, post_id: str, photo_data_url: str) -> str:
         content_type, raw_bytes = _decode_data_url(photo_data_url)
@@ -237,11 +243,6 @@ class SupabasePostStore:
         except Exception:
             logger.exception("Supabase signed URL creation failed")
             return ""
-
-    def _sync_journey_state(self) -> None:
-        posts = self.list_posts()
-        total_gyan = sum(post.gyan for post in posts)
-        self.get_journey_state(total_gyan)
 
     def _fetch_journey_state(self) -> JourneyState:
         response = (

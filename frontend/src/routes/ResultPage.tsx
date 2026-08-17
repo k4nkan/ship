@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { fetchPostSummary } from "../api/postsApi";
 import type { AdventurePost, PostSummary } from "../types";
 
@@ -7,16 +7,23 @@ const POST_IMAGE_WIDTH = 1080;
 const POST_IMAGE_HEIGHT = 1350;
 
 export function ResultPage() {
+  const location = useLocation();
   const navigate = useNavigate();
+  const initialSummary = (location.state as { summary?: PostSummary } | null)
+    ?.summary;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [summary, setSummary] = useState<PostSummary | null>(null);
+  const [summary, setSummary] = useState<PostSummary | null>(
+    initialSummary ?? null,
+  );
   const [latestPost, setLatestPost] = useState<
     AdventurePost | null | undefined
-  >(undefined);
+  >(initialSummary?.lastPost);
   const [saveLabel, setSaveLabel] = useState("投稿画像を保存");
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
+    if (initialSummary) return;
+
     fetchPostSummary()
       .then((nextSummary) => {
         setSummary(nextSummary);
@@ -28,7 +35,7 @@ export function ResultPage() {
         );
         setLatestPost(null);
       });
-  }, []);
+  }, [initialSummary]);
 
   useEffect(() => {
     if (!latestPost) return;

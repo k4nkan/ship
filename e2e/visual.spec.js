@@ -7,6 +7,7 @@ test("GYAN posting flow updates the map", async ({ page }) => {
       errors.push(message.text());
     }
   });
+  page.on("pageerror", (error) => errors.push(error.message));
 
   await page.request.delete("http://127.0.0.1:8010/api/posts");
   await page.goto("http://127.0.0.1:5174/");
@@ -19,12 +20,16 @@ test("GYAN posting flow updates the map", async ({ page }) => {
   await expect(page.locator("#map")).toBeVisible();
   await expect(page.locator("#current-gyan")).toHaveText("0");
   await expect(page.locator("#current-area")).toBeVisible();
-  await expect(page.getByRole("button", { name: "現在地へ移動" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "現在地へ移動" }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "GYANを送る" })).toBeVisible();
 
-  await page.goto("http://127.0.0.1:5174/post?team=A");
+  await page.getByRole("button", { name: "GYANを送る" }).click();
   await expect(page.locator("#team")).toHaveValue("A");
-  await expect(page.getByRole("button", { name: "カメラを起動" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "カメラを起動" }),
+  ).toBeVisible();
   await page.locator("#nickname").fill("kanta");
   await page.locator("#comment").fill("班で新しいプロトタイプを作った");
   await page.locator("#photo").setInputFiles({
@@ -41,10 +46,45 @@ test("GYAN posting flow updates the map", async ({ page }) => {
   await expect(page).toHaveURL(/\/result$/);
   await expect(page.locator("#result-content")).toContainText("獲得GYAN");
   await expect(page.getByLabel("投稿画像プレビュー")).toBeVisible();
-  await expect(page.getByRole("button", { name: "投稿画像を保存" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "投稿画像を保存" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "マップに戻る" }).click();
 
   await expect(page).toHaveURL("http://127.0.0.1:5174/");
   await expect(page.locator("#current-gyan")).not.toHaveText("0");
   expect(errors).toEqual([]);
+});
+
+test("mobile upload falls back when WebP encoding is unavailable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    const originalToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
+      return originalToBlob.call(
+        this,
+        callback,
+        type === "image/webp" ? "image/png" : type,
+        quality,
+      );
+    };
+  });
+
+  await page.goto("http://127.0.0.1:5174/post");
+  const photoInput = page.locator("#photo");
+  await expect(photoInput).not.toHaveAttribute("capture", /.+/);
+  await photoInput.setInputFiles({
+    name: "sample.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    ),
+  });
+
+  const preview = page.locator("#photo-preview img");
+  await expect(preview).toBeVisible();
+  await expect(preview).toHaveAttribute("src", /^data:image\/jpeg/);
 });

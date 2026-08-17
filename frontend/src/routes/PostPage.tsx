@@ -7,10 +7,7 @@ import {
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createPost, fetchJourney } from "../api/postsApi";
-import {
-  readPhotoFile,
-  resizeImageDataUrlToWebp,
-} from "../features/posts/photoFile";
+import { captureVideoFrame, readPhotoFile } from "../features/posts/photoFile";
 import { TEAM_OPTIONS } from "../features/posts/teamOptions";
 import { getSavedNickname, saveNickname } from "../lib/nicknameStorage";
 import { savePreviousProgress } from "../lib/routeProgressStorage";
@@ -73,6 +70,8 @@ export function PostPage() {
       setErrorMessage(
         error instanceof Error ? error.message : "画像変換に失敗しました",
       );
+    } finally {
+      event.target.value = "";
     }
   };
 
@@ -107,20 +106,16 @@ export function PostPage() {
       return;
     }
 
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const context = canvas.getContext("2d");
-    if (!context) {
-      setErrorMessage("写真の撮影に失敗しました");
-      return;
+    setErrorMessage("");
+    try {
+      setPhotoDataUrl(await captureVideoFrame(video));
+      stopCamera();
+    } catch (error) {
+      setPhotoDataUrl("");
+      setErrorMessage(
+        error instanceof Error ? error.message : "画像変換に失敗しました",
+      );
     }
-
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    setPhotoDataUrl(
-      await resizeImageDataUrlToWebp(canvas.toDataURL("image/webp", 0.82)),
-    );
-    stopCamera();
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -137,13 +132,13 @@ export function PostPage() {
       const journey = await fetchJourney();
       savePreviousProgress(journey.progress);
       saveNickname(nickname.trim());
-      await createPost({
+      const summary = await createPost({
         team,
         nickname: nickname.trim(),
         comment: comment.trim(),
         photoDataUrl,
       });
-      navigate("/result");
+      navigate("/result", { state: { summary } });
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "投稿に失敗しました",
@@ -205,7 +200,6 @@ export function PostPage() {
                 className="visually-hidden"
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={handlePhotoChange}
               />
             </div>

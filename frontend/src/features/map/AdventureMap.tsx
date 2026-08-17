@@ -13,6 +13,8 @@ import {
   sampleRouteCoordinate,
 } from "./route";
 
+const MAP_ANIMATION_FRAME_MS = 1000 / 20;
+
 type AdventureMapProps = {
   progress: number;
   previousProgress: number;
@@ -57,6 +59,7 @@ export function AdventureMap({
 }: AdventureMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -70,7 +73,7 @@ export function AdventureMap({
     });
     mapRef.current = map;
 
-    map.on("load", () => {
+    const handleLoad = () => {
       map.addSource("route-full", {
         type: "geojson",
         data: makeLineString(ROUTE_COORDINATES),
@@ -179,11 +182,17 @@ export function AdventureMap({
           "text-halo-width": 2,
         },
       });
-    });
+    };
+    map.on("load", handleLoad);
 
     return () => {
-      map.remove();
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
       mapRef.current = null;
+      map.off("load", handleLoad);
+      map.remove();
     };
   }, []);
 
@@ -192,6 +201,8 @@ export function AdventureMap({
     if (!map) return;
 
     const updateMap = (routeProgress: number) => {
+      if (mapRef.current !== map) return;
+
       setSourceData(
         map,
         "route-progress",
@@ -204,25 +215,43 @@ export function AdventureMap({
     };
 
     if (!map.isStyleLoaded()) {
-      map.once("load", () => updateMap(progress));
-      return;
+      const handleLoad = () => updateMap(progress);
+      map.once("load", handleLoad);
+      return () => map.off("load", handleLoad);
     }
 
     const startedAt = performance.now();
     const durationMs = previousProgress === progress ? 0 : 900;
+    let lastUpdatedAt = 0;
 
     const tick = (time: number) => {
+      if (mapRef.current !== map) return;
+
       const animationProgress =
         durationMs === 0 ? 1 : Math.min(1, (time - startedAt) / durationMs);
-      const eased = 1 - (1 - animationProgress) ** 3;
-      updateMap(previousProgress + (progress - previousProgress) * eased);
+      if (
+        animationProgress === 1 ||
+        time - lastUpdatedAt >= MAP_ANIMATION_FRAME_MS
+      ) {
+        const eased = 1 - (1 - animationProgress) ** 3;
+        updateMap(previousProgress + (progress - previousProgress) * eased);
+        lastUpdatedAt = time;
+      }
 
       if (animationProgress < 1) {
-        requestAnimationFrame(tick);
+        animationFrameRef.current = requestAnimationFrame(tick);
+      } else {
+        animationFrameRef.current = null;
       }
     };
 
-    requestAnimationFrame(tick);
+    animationFrameRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
   }, [previousProgress, progress]);
 
   useEffect(() => {
