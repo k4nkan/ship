@@ -182,14 +182,16 @@ make check
 
 GitHub repositoryの `Settings > Secrets and variables > Actions` に以下を設定します。
 
-- Secret: `GCP_WORKLOAD_IDENTITY_PROVIDER`
-- Secret: `GCP_SERVICE_ACCOUNT`
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`: `projects/774806497724/locations/global/workloadIdentityPools/github/providers/ship`
+- `GCP_SERVICE_ACCOUNT`: `github-actions-deployer@ship-505808.iam.gserviceaccount.com`
 
 `GCP_SERVICE_ACCOUNT` にはCloud Run source deployに必要な権限を付与します。
 
 - `roles/run.sourceDeveloper`
 - `roles/serviceusage.serviceUsageConsumer`
-- Cloud Run service identityへの `roles/iam.serviceAccountUser`
+- `ship-api-runtime@ship-505808.iam.gserviceaccount.com` への `roles/iam.serviceAccountUser`
+
+source buildを実行するCompute Engine default service accountには `roles/run.builder` を付与します。
 
 deploy先:
 
