@@ -191,7 +191,7 @@ GitHub repositoryの `Settings > Secrets and variables > Actions` に以下を�
 - `roles/serviceusage.serviceUsageConsumer`
 - `ship-api-runtime@ship-505808.iam.gserviceaccount.com` への `roles/iam.serviceAccountUser`
 
-source buildを実行するCompute Engine default service accountには `roles/run.builder` を付与します。
+source buildには `ship-api-builder@ship-505808.iam.gserviceaccount.com` を使用し、`roles/run.builder` を付与します。`GCP_SERVICE_ACCOUNT` には、このbuild service accountへの `roles/iam.serviceAccountUser` も付与します。
 
 deploy先:
 
