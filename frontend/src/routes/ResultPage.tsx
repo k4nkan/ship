@@ -4,7 +4,7 @@ import { fetchPostSummary } from "../api/postsApi";
 import type { AdventurePost, PostSummary } from "../types";
 
 const POST_IMAGE_WIDTH = 1080;
-const POST_IMAGE_HEIGHT = 1350;
+const POST_IMAGE_HEIGHT = 1160;
 
 export function ResultPage() {
   const location = useLocation();
@@ -47,16 +47,36 @@ export function ResultPage() {
     );
   }, [latestPost, summary]);
 
-  const handleSavePostImage = () => {
+  const handleSavePostImage = async () => {
     const canvas = canvasRef.current;
     if (!canvas || !latestPost) return;
 
-    const link = document.createElement("a");
-    link.href = canvas.toDataURL("image/png");
-    link.download = `gyan-${latestPost.id}.png`;
-    link.click();
-    setSaveLabel("保存しました");
-    window.setTimeout(() => setSaveLabel("投稿画像を保存"), 1200);
+    try {
+      const blob = await canvasToBlob(canvas);
+      const filename = `gyan-${latestPost.id}.png`;
+      const file = new File([blob], filename, { type: "image/png" });
+      const canShareFile =
+        typeof navigator.share === "function" &&
+        (!navigator.canShare || navigator.canShare({ files: [file] }));
+
+      if (canShareFile) {
+        await navigator.share({
+          files: [file],
+          title: "帰るまでが冒険",
+        });
+        setSaveLabel("共有しました");
+      } else {
+        downloadBlob(blob, filename);
+        setSaveLabel("保存しました");
+      }
+
+      window.setTimeout(() => setSaveLabel("投稿画像を保存"), 1200);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setErrorMessage(
+        error instanceof Error ? error.message : "投稿画像の保存に失敗しました",
+      );
+    }
   };
 
   if (latestPost === undefined) {
@@ -100,29 +120,12 @@ export function ResultPage() {
                 <strong>{summary?.totalGyan ?? latestPost.gyan}</strong>
               </div>
             </div>
-            <div className="result-grid">
-              <dl className="result-summary">
-                <div>
-                  <dt>班</dt>
-                  <dd>{latestPost.team}</dd>
-                </div>
-                <div>
-                  <dt>ニックネーム</dt>
-                  <dd>{latestPost.nickname}</dd>
-                </div>
-                <div>
-                  <dt>コメント</dt>
-                  <dd>{latestPost.comment}</dd>
-                </div>
-                <div>
-                  <dt>獲得GYAN</dt>
-                  <dd>{latestPost.gyan}</dd>
-                </div>
-                <div>
-                  <dt>リアクション</dt>
-                  <dd>{latestPost.reaction}</dd>
-                </div>
-              </dl>
+            <div className="gyan-report">
+              <div className="gyan-report-header">
+                <span>GYANレポート</span>
+                <strong>{latestPost.gyanLevel}</strong>
+              </div>
+              <p>{latestPost.reaction}</p>
             </div>
           </div>
         ) : null}
@@ -163,51 +166,51 @@ async function drawPostImage(
   const image = await loadImage(post.imageUrl || post.photoDataUrl);
   const width = canvas.width;
   const height = canvas.height;
-  const padding = 72;
+  const padding = 64;
 
   context.fillStyle = "#f8fafc";
   context.fillRect(0, 0, width, height);
   context.fillStyle = "#111827";
-  context.fillRect(0, 0, width, 132);
+  context.fillRect(0, 0, width, 112);
 
   context.fillStyle = "#ffffff";
-  context.font = "700 34px system-ui, sans-serif";
-  context.fillText("帰るまでが冒険", padding, 78);
-  context.font = "700 22px system-ui, sans-serif";
-  context.fillText(`班 ${post.team}`, width - 150, 78);
+  context.font = "700 30px system-ui, sans-serif";
+  context.fillText("帰るまでが冒険", padding, 68);
+  context.font = "700 20px system-ui, sans-serif";
+  context.fillText(`班 ${post.team}`, width - 136, 68);
 
-  drawCoverImage(context, image, padding, 178, width - padding * 2, 640);
+  drawCoverImage(context, image, padding, 154, width - padding * 2, 560);
 
   context.fillStyle = "#111827";
-  context.font = "800 52px system-ui, sans-serif";
-  context.fillText(`+${post.gyan} GYAN`, padding, 910);
-  context.font = "700 24px system-ui, sans-serif";
+  context.font = "800 46px system-ui, sans-serif";
+  context.fillText(`+${post.gyan} GYAN`, padding, 780);
+  context.font = "700 22px system-ui, sans-serif";
   context.fillStyle = "#4b5563";
   context.fillText(
     `速度 ${summary?.currentSpeed ?? post.gyan} GYAN/時 / 累計 ${
       summary?.totalGyan ?? post.gyan
     } GYAN`,
     padding,
-    954,
+    822,
   );
 
   context.fillStyle = "#111827";
-  context.font = "700 30px system-ui, sans-serif";
-  context.fillText(post.nickname, padding, 1030);
-  context.font = "400 30px system-ui, sans-serif";
+  context.font = "700 26px system-ui, sans-serif";
+  context.fillText(post.nickname, padding, 888);
+  context.font = "400 26px system-ui, sans-serif";
   drawWrappedText(
     context,
     post.comment,
     padding,
-    1084,
+    934,
     width - padding * 2,
-    42,
-    5,
+    34,
+    4,
   );
 
   context.fillStyle = "#374151";
-  context.font = "700 22px system-ui, sans-serif";
-  context.fillText("帰るまでが冒険", padding, 1290);
+  context.font = "700 20px system-ui, sans-serif";
+  context.fillText("帰るまでが冒険", padding, 1110);
 }
 
 function drawCoverImage(
@@ -288,4 +291,28 @@ async function loadImage(source: string): Promise<HTMLImageElement> {
     };
     image.src = objectUrl;
   });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        reject(new Error("投稿画像の保存に失敗しました"));
+      }
+    }, "image/png");
+  });
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }

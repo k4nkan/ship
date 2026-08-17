@@ -1,6 +1,19 @@
 const { test, expect } = require("@playwright/test");
 
 test("GYAN posting flow updates the map", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", { value: undefined });
+    Object.defineProperty(navigator, "canShare", { value: undefined });
+    window.__downloadRequest = null;
+    HTMLAnchorElement.prototype.click = function () {
+      if (this.download) {
+        window.__downloadRequest = {
+          filename: this.download,
+          href: this.href,
+        };
+      }
+    };
+  });
   const errors = [];
   page.on("console", (message) => {
     if (message.type() === "error") {
@@ -17,6 +30,7 @@ test("GYAN posting flow updates the map", async ({ page }) => {
   });
   await page.reload();
 
+  await expect(page.getByLabel("読み込み中")).toBeHidden();
   await expect(page.locator("#map")).toBeVisible();
   await expect(page.locator("#current-gyan")).toHaveText("0");
   await expect(page.locator("#current-area")).toBeVisible();
@@ -24,6 +38,13 @@ test("GYAN posting flow updates the map", async ({ page }) => {
     page.getByRole("button", { name: "現在地へ移動" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "GYANを送る" })).toBeVisible();
+
+  await page.route("**/api/posts", async (route) => {
+    if (route.request().method() === "POST") {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    await route.continue();
+  });
 
   await page.getByRole("button", { name: "GYANを送る" }).click();
   await expect(page.locator("#team")).toHaveValue("A");
@@ -42,16 +63,27 @@ test("GYAN posting flow updates the map", async ({ page }) => {
   });
   await expect(page.locator("#photo-preview img")).toBeVisible();
   await page.getByRole("button", { name: "投稿する" }).click();
+  await expect(page.getByLabel("GYANを生成中…")).toBeVisible();
 
   await expect(page).toHaveURL(/\/result$/);
-  await expect(page.locator("#result-content")).toContainText("獲得GYAN");
+  await expect(page.locator("#result-content")).toContainText("GYANレポート");
   await expect(page.getByLabel("投稿画像プレビュー")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "投稿画像を保存" }),
-  ).toBeVisible();
+  const saveButton = page.getByRole("button", { name: "投稿画像を保存" });
+  await expect(saveButton).toBeVisible();
+  await saveButton.click();
+  await expect
+    .poll(() => page.evaluate(() => window.__downloadRequest?.filename))
+    .toMatch(/^gyan-.+\.png$/);
   await page.getByRole("button", { name: "マップに戻る" }).click();
 
   await expect(page).toHaveURL("http://127.0.0.1:5174/");
+  const scrollMetrics = await page.evaluate(() => ({
+    scrollHeight: document.scrollingElement.scrollHeight,
+    clientHeight: document.scrollingElement.clientHeight,
+  }));
+  expect(scrollMetrics.scrollHeight).toBeLessThanOrEqual(
+    scrollMetrics.clientHeight,
+  );
   await expect(page.locator("#current-gyan")).not.toHaveText("0");
   expect(errors).toEqual([]);
 });
@@ -72,7 +104,23 @@ test("mobile upload falls back when WebP encoding is unavailable", async ({
     };
   });
 
+  await page.goto("http://127.0.0.1:5174/");
+  const mobileMapScrollMetrics = await page.evaluate(() => ({
+    scrollHeight: document.scrollingElement.scrollHeight,
+    clientHeight: document.scrollingElement.clientHeight,
+  }));
+  expect(mobileMapScrollMetrics.scrollHeight).toBeLessThanOrEqual(
+    mobileMapScrollMetrics.clientHeight,
+  );
+
   await page.goto("http://127.0.0.1:5174/post");
+  await expect(page.locator("#camera")).toHaveAttribute(
+    "capture",
+    "environment",
+  );
+  const formBounds = await page.locator(".form-screen").boundingBox();
+  expect(formBounds.y + formBounds.height).toBeLessThanOrEqual(844);
+
   const photoInput = page.locator("#photo");
   await expect(photoInput).not.toHaveAttribute("capture", /.+/);
   await photoInput.setInputFiles({

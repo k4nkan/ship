@@ -14,6 +14,8 @@ class Settings(BaseModel):
     supabase_url: str = ""
     supabase_secret_key: str = ""
     supabase_storage_bucket: str = ""
+    supabase_table_prefix: str = ""
+    supabase_storage_prefix: str = ""
 
     @property
     def supabase_enabled(self) -> bool:
@@ -22,6 +24,19 @@ class Settings(BaseModel):
             and self.supabase_secret_key
             and self.supabase_storage_bucket
         )
+
+    @property
+    def supabase_posts_table(self) -> str:
+        return f"{self.supabase_table_prefix}posts"
+
+    @property
+    def supabase_journey_table(self) -> str:
+        return f"{self.supabase_table_prefix}journey_state"
+
+    @property
+    def supabase_storage_path_prefix(self) -> str:
+        prefix = self.supabase_storage_prefix.strip("/")
+        return f"{prefix}/" if prefix else ""
 
 
 def load_env_file(path: Path) -> None:
@@ -61,4 +76,6 @@ def get_settings() -> Settings:
             or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
         ),
         supabase_storage_bucket=os.environ.get("SUPABASE_STORAGE_BUCKET", ""),
+        supabase_table_prefix=os.environ.get("SUPABASE_TABLE_PREFIX", ""),
+        supabase_storage_prefix=os.environ.get("SUPABASE_STORAGE_PREFIX", ""),
     )

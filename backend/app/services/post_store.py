@@ -96,11 +96,14 @@ class SupabasePostStore:
     def __init__(self, client, settings: Settings) -> None:
         self.client = client
         self.bucket = settings.supabase_storage_bucket
+        self.posts_table = settings.supabase_posts_table
+        self.journey_table = settings.supabase_journey_table
+        self.storage_path_prefix = settings.supabase_storage_path_prefix
 
     def get_post(self, post_id: str) -> AdventurePost | None:
         try:
             response = (
-                self.client.table("posts")
+                self.client.table(self.posts_table)
                 .select("*")
                 .eq("id", post_id)
                 .maybe_single()
@@ -114,7 +117,7 @@ class SupabasePostStore:
     def list_posts(self) -> list[AdventurePost]:
         try:
             response = (
-                self.client.table("posts")
+                self.client.table(self.posts_table)
                 .select("*")
                 .order("created_at", desc=False)
                 .execute()
@@ -144,7 +147,7 @@ class SupabasePostStore:
         }
 
         try:
-            response = self.client.table("posts").insert(payload).execute()
+            response = self.client.table(self.posts_table).insert(payload).execute()
             post = self._row_to_post((response.data or [payload])[0])
             return post
         except Exception:
@@ -153,7 +156,7 @@ class SupabasePostStore:
 
     def clear_posts(self) -> None:
         try:
-            self.client.table("posts").delete().neq(
+            self.client.table(self.posts_table).delete().neq(
                 "id",
                 "00000000-0000-0000-0000-000000000000",
             ).execute()
@@ -198,7 +201,7 @@ class SupabasePostStore:
     def _upload_photo(self, post_id: str, photo_data_url: str) -> str:
         content_type, raw_bytes = _decode_data_url(photo_data_url)
         extension = mimetypes.guess_extension(content_type) or ".webp"
-        image_path = f"posts/{post_id}/original{extension}"
+        image_path = f"{self.storage_path_prefix}posts/{post_id}/original{extension}"
 
         try:
             self.client.storage.from_(self.bucket).upload(
@@ -246,7 +249,7 @@ class SupabasePostStore:
 
     def _fetch_journey_state(self) -> JourneyState:
         response = (
-            self.client.table("journey_state")
+            self.client.table(self.journey_table)
             .select("*")
             .eq("id", 1)
             .maybe_single()
@@ -278,7 +281,7 @@ class SupabasePostStore:
             "updated_at": updated_at,
         }
         try:
-            self.client.table("journey_state").upsert(payload).execute()
+            self.client.table(self.journey_table).upsert(payload).execute()
             return JourneyState(
                 totalGyan=total_gyan,
                 progress=progress,

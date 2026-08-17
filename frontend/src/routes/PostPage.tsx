@@ -7,6 +7,7 @@ import {
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createPost, fetchJourney } from "../api/postsApi";
+import { LoadingScreen } from "../components/LoadingScreen";
 import { captureVideoFrame, readPhotoFile } from "../features/posts/photoFile";
 import { TEAM_OPTIONS } from "../features/posts/teamOptions";
 import { getSavedNickname, saveNickname } from "../lib/nicknameStorage";
@@ -16,6 +17,7 @@ export function PostPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const initialTeam = searchParams.get("team");
   const [team, setTeam] = useState(
@@ -75,9 +77,18 @@ export function PostPage() {
     }
   };
 
-  const handleStartCamera = async () => {
+  const handleStartCamera = () => {
     setErrorMessage("");
 
+    if (shouldUseNativeCameraInput()) {
+      cameraInputRef.current?.click();
+      return;
+    }
+
+    void startBrowserCamera();
+  };
+
+  const startBrowserCamera = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
       setErrorMessage("このブラウザではカメラを起動できません");
       return;
@@ -148,6 +159,10 @@ export function PostPage() {
     }
   };
 
+  if (isSubmitting) {
+    return <LoadingScreen message="GYANを生成中…" />;
+  }
+
   return (
     <section className="screen form-screen">
       <div className="content-panel">
@@ -200,6 +215,15 @@ export function PostPage() {
                 className="visually-hidden"
                 type="file"
                 accept="image/*"
+                onChange={handlePhotoChange}
+              />
+              <input
+                ref={cameraInputRef}
+                id="camera"
+                className="visually-hidden"
+                type="file"
+                accept="image/*"
+                capture="environment"
                 onChange={handlePhotoChange}
               />
             </div>
@@ -268,5 +292,12 @@ export function PostPage() {
         </form>
       </div>
     </section>
+  );
+}
+
+function shouldUseNativeCameraInput(): boolean {
+  return (
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    window.matchMedia?.("(pointer: coarse)").matches === true
   );
 }
