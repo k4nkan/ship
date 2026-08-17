@@ -26,6 +26,7 @@ export type PostSummary = {
   totalGyan: number;
   lastPost: AdventurePost | null;
   currentSpeed: number;
+  currentProgress: number;
 };
 
 export type JourneyState = {

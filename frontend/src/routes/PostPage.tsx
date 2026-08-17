@@ -165,9 +165,8 @@ export function PostPage() {
 
   return (
     <section className="screen form-screen">
-      <div className="content-panel">
+      <div className="content-panel form-panel">
         <header className="screen-header">
-          <p className="eyebrow">投稿作成</p>
           <h1>GYANを送る</h1>
         </header>
         <form className="post-form" onSubmit={handleSubmit}>

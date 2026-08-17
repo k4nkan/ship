@@ -1,5 +1,6 @@
-export const START_COORDINATE: [number, number] = [135, 85];
+export const START_COORDINATE: [number, number] = [0, 85];
 export const GOAL_COORDINATE: [number, number] = [135.5613416, 34.8096024];
+export const ROUTE_TARGET_GYAN = 1000;
 
 export type RouteSpot = {
   label: string;
@@ -8,22 +9,20 @@ export type RouteSpot = {
 
 export const ROUTE_SPOTS: RouteSpot[] = [
   { label: "北極点", coordinate: START_COORDINATE },
-  { label: "北極海", coordinate: [138, 76] },
-  { label: "ロシア", coordinate: [142.7333, 46.9641] },
-  { label: "北海道", coordinate: [141.3545, 43.0618] },
-  { label: "東京", coordinate: [139.7671, 35.6812] },
-  { label: "富士山", coordinate: [138.7274, 35.3606] },
-  { label: "立命館", coordinate: GOAL_COORDINATE },
+  { label: "トロムソ 🇳🇴", coordinate: [18.9553, 69.6492] },
+  { label: "ロンドン 🇬🇧", coordinate: [-0.1276, 51.5074] },
+  { label: "ローマ 🇮🇹", coordinate: [12.4964, 41.9028] },
+  { label: "カイロ 🇪🇬", coordinate: [31.2357, 30.0444] },
+  { label: "ドバイ 🇦🇪", coordinate: [55.2708, 25.2048] },
+  { label: "デリー 🇮🇳", coordinate: [77.1025, 28.7041] },
+  { label: "バンコク 🇹🇭", coordinate: [100.5018, 13.7563] },
+  { label: "香港 🇭🇰", coordinate: [114.1694, 22.3193] },
+  { label: "ソウル 🇰🇷", coordinate: [126.978, 37.5665] },
+  { label: "東京 🇯🇵", coordinate: [139.6917, 35.6895] },
+  { label: "立命館 🏁", coordinate: GOAL_COORDINATE },
 ];
 
-export const ROUTE_MARKERS: RouteSpot[] = [
-  ROUTE_SPOTS[0],
-  ROUTE_SPOTS[2],
-  ROUTE_SPOTS[3],
-  ROUTE_SPOTS[4],
-  ROUTE_SPOTS[5],
-  ROUTE_SPOTS[6],
-];
+export const ROUTE_MARKERS: RouteSpot[] = ROUTE_SPOTS;
 
 export const ROUTE_COORDINATES: [number, number][] = ROUTE_SPOTS.map(
   (spot) => spot.coordinate,
@@ -37,6 +36,87 @@ type RouteSegment = {
   length: number;
   totalLength: number;
 };
+
+type RegionBounds = {
+  label: string;
+  minLongitude: number;
+  maxLongitude: number;
+  minLatitude: number;
+  maxLatitude: number;
+};
+
+const APPROXIMATE_REGION_BOUNDS: RegionBounds[] = [
+  {
+    label: "東京 🇯🇵",
+    minLongitude: 128,
+    maxLongitude: 147,
+    minLatitude: 30,
+    maxLatitude: 46,
+  },
+  {
+    label: "ソウル 🇰🇷",
+    minLongitude: 123,
+    maxLongitude: 130,
+    minLatitude: 30,
+    maxLatitude: 40,
+  },
+  {
+    label: "香港 🇭🇰",
+    minLongitude: 108,
+    maxLongitude: 123,
+    minLatitude: 10,
+    maxLatitude: 30,
+  },
+  {
+    label: "バンコク 🇹🇭",
+    minLongitude: 90,
+    maxLongitude: 108,
+    minLatitude: 0,
+    maxLatitude: 22,
+  },
+  {
+    label: "デリー 🇮🇳",
+    minLongitude: 65,
+    maxLongitude: 90,
+    minLatitude: 5,
+    maxLatitude: 35,
+  },
+  {
+    label: "ドバイ 🇦🇪",
+    minLongitude: 40,
+    maxLongitude: 65,
+    minLatitude: 15,
+    maxLatitude: 32,
+  },
+  {
+    label: "カイロ 🇪🇬",
+    minLongitude: 25,
+    maxLongitude: 40,
+    minLatitude: 20,
+    maxLatitude: 35,
+  },
+  {
+    label: "ローマ 🇮🇹",
+    minLongitude: 5,
+    maxLongitude: 25,
+    minLatitude: 35,
+    maxLatitude: 48,
+  },
+  {
+    label: "ロンドン 🇬🇧",
+    minLongitude: -15,
+    maxLongitude: 10,
+    minLatitude: 45,
+    maxLatitude: 60,
+  },
+  {
+    label: "トロムソ 🇳🇴",
+    minLongitude: -10,
+    maxLongitude: 35,
+    minLatitude: 55,
+    maxLatitude: 75,
+  },
+];
 
 function createRouteSegments(): RouteSegment[] {
   const segments: RouteSegment[] = [];
@@ -99,6 +179,35 @@ export function getTraveledRoute(progress: number): [number, number][] {
   }
 
   return coordinates.concat([currentCoordinate]);
+}
+
+export function getCurrentRouteLabel(progress: number): string {
+  const clampedProgress = clampProgress(progress);
+  if (clampedProgress >= 1) {
+    return ROUTE_SPOTS[ROUTE_SPOTS.length - 1].label;
+  }
+
+  const currentCoordinate = sampleRouteCoordinate(clampedProgress);
+  const approximateRegion = getApproximateRegionLabel(currentCoordinate);
+  if (approximateRegion) return approximateRegion;
+
+  const target = clampedProgress * routeLength;
+  const segmentIndex = routeSegments.findIndex(
+    (segment) => segment.totalLength > target,
+  );
+  return ROUTE_SPOTS[Math.max(0, segmentIndex)].label;
+}
+
+function getApproximateRegionLabel([longitude, latitude]: [number, number]):
+  string | null {
+  const region = APPROXIMATE_REGION_BOUNDS.find(
+    (bounds) =>
+      longitude >= bounds.minLongitude &&
+      longitude <= bounds.maxLongitude &&
+      latitude >= bounds.minLatitude &&
+      latitude <= bounds.maxLatitude,
+  );
+  return region?.label ?? null;
 }
 
 function getRouteSegment(progress: number): RouteSegment {

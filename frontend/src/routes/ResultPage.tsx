@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { fetchPostSummary } from "../api/postsApi";
+import {
+  ROUTE_TARGET_GYAN,
+  sampleRouteCoordinate,
+} from "../features/map/route";
 import type { AdventurePost, PostSummary } from "../types";
 
 const POST_IMAGE_WIDTH = 1080;
-const POST_IMAGE_HEIGHT = 1160;
+const POST_IMAGE_HEIGHT = 1500;
 
 export function ResultPage() {
   const location = useLocation();
@@ -89,44 +93,59 @@ export function ResultPage() {
 
   return (
     <section className="screen result-screen">
-      <div className="content-panel">
+      <div className="content-panel result-panel">
         <header className="screen-header">
-          <p className="eyebrow">生成結果</p>
-          <h1>獲得したGYAN</h1>
+          <h1>生成結果</h1>
         </header>
         {latestPost ? (
-          <div id="result-content">
-            <div className="post-image-preview">
-              <canvas
-                ref={canvasRef}
-                width={POST_IMAGE_WIDTH}
-                height={POST_IMAGE_HEIGHT}
-                aria-label="投稿画像プレビュー"
-              />
-            </div>
-            <div className="impact-strip">
-              <div>
-                <span>今回</span>
-                <strong>+{latestPost.gyan} GYAN</strong>
+          <div id="result-content" className="result-content">
+            <article className="result-post-card">
+              <div className="post-image-preview">
+                <canvas
+                  ref={canvasRef}
+                  width={POST_IMAGE_WIDTH}
+                  height={POST_IMAGE_HEIGHT}
+                  aria-label="投稿画像プレビュー"
+                />
               </div>
-              <div>
-                <span>速度</span>
-                <strong>
-                  {summary?.currentSpeed ?? latestPost.gyan} GYAN/時
-                </strong>
+            </article>
+
+            <section className="result-report" aria-labelledby="report-heading">
+              <h2 id="report-heading">レポート</h2>
+              <div className="result-report-metrics">
+                <div className="result-report-metric">
+                  <span>速度</span>
+                  <strong>{summary?.currentSpeed ?? latestPost.gyan}</strong>
+                  <small>gyan/h</small>
+                </div>
+                <div className="result-report-metric">
+                  <span>累計</span>
+                  <strong>{summary?.totalGyan ?? latestPost.gyan}</strong>
+                  <small>gyan</small>
+                </div>
+                <div className="result-report-metric">
+                  <span>残り</span>
+                  <strong>
+                    {Math.max(
+                      0,
+                      Math.ceil(
+                        (1 - (summary?.currentProgress ?? 0)) *
+                          ROUTE_TARGET_GYAN,
+                      ),
+                    )}
+                  </strong>
+                  <small>km</small>
+                </div>
               </div>
-              <div>
-                <span>累計</span>
-                <strong>{summary?.totalGyan ?? latestPost.gyan}</strong>
-              </div>
-            </div>
-            <div className="gyan-report">
-              <div className="gyan-report-header">
-                <span>GYANレポート</span>
-                <strong>{latestPost.gyanLevel}</strong>
-              </div>
+            </section>
+
+            <section
+              className="result-comment"
+              aria-labelledby="comment-heading"
+            >
+              <h2 id="comment-heading">コメント</h2>
               <p>{latestPost.reaction}</p>
-            </div>
+            </section>
           </div>
         ) : null}
         <div className="button-row">
@@ -164,53 +183,117 @@ async function drawPostImage(
   }
 
   const image = await loadImage(post.imageUrl || post.photoDataUrl);
+  await document.fonts.load('500 48px "Material Symbols Rounded"');
   const width = canvas.width;
   const height = canvas.height;
-  const padding = 64;
+  const outerMargin = 80;
+  const cardX = outerMargin;
+  const cardY = 136;
+  const cardWidth = 920;
+  const cardHeight = height - cardY - 36;
+  const padding = 40;
+  const contentX = cardX + padding;
+  const contentWidth = cardWidth - padding * 2;
+  const imageY = cardY + 174;
 
-  context.fillStyle = "#f8fafc";
+  context.fillStyle = "#f3f4f6";
   context.fillRect(0, 0, width, height);
-  context.fillStyle = "#111827";
-  context.fillRect(0, 0, width, 112);
-
   context.fillStyle = "#ffffff";
-  context.font = "700 30px system-ui, sans-serif";
-  context.fillText("帰るまでが冒険", padding, 68);
-  context.font = "700 20px system-ui, sans-serif";
-  context.fillText(`班 ${post.team}`, width - 136, 68);
+  context.fillRect(cardX, cardY, cardWidth, cardHeight);
 
-  drawCoverImage(context, image, padding, 154, width - padding * 2, 560);
-
+  context.fillStyle = "#d1d5db";
+  context.beginPath();
+  context.arc(contentX + 28, cardY + 64, 28, 0, Math.PI * 2);
+  context.fill();
   context.fillStyle = "#111827";
-  context.font = "800 46px system-ui, sans-serif";
-  context.fillText(`+${post.gyan} GYAN`, padding, 780);
-  context.font = "700 22px system-ui, sans-serif";
-  context.fillStyle = "#4b5563";
+  context.font = "500 30px system-ui, sans-serif";
   context.fillText(
-    `速度 ${summary?.currentSpeed ?? post.gyan} GYAN/時 / 累計 ${
-      summary?.totalGyan ?? post.gyan
-    } GYAN`,
-    padding,
-    822,
+    `班 ${post.team} / ${post.nickname}`,
+    contentX + 76,
+    cardY + 74,
   );
 
+  drawCoverImage(context, image, contentX, imageY, contentWidth, contentWidth);
+
+  const metadataY = imageY + contentWidth + 55;
+  drawMaterialIcon(
+    context,
+    "local_fire_department",
+    contentX,
+    metadataY,
+    48,
+    "#f97316",
+  );
   context.fillStyle = "#111827";
   context.font = "700 26px system-ui, sans-serif";
-  context.fillText(post.nickname, padding, 888);
-  context.font = "400 26px system-ui, sans-serif";
+  context.save();
+  context.textBaseline = "middle";
+  context.fillText(`+${post.gyan}`, contentX + 58, metadataY);
+  context.restore();
+
+  const currentCoordinate = sampleRouteCoordinate(
+    summary?.currentProgress ?? 0,
+  );
+  drawMaterialIcon(
+    context,
+    "location_on",
+    contentX + 210,
+    metadataY,
+    40,
+    "#4b5563",
+  );
+  context.fillStyle = "#374151";
+  context.font = "400 22px system-ui, sans-serif";
+  context.save();
+  context.textBaseline = "middle";
+  context.fillText(
+    formatCoordinate(currentCoordinate),
+    contentX + 262,
+    metadataY,
+  );
+  context.restore();
+
+  context.fillStyle = "#111827";
+  context.font = "500 30px system-ui, sans-serif";
   drawWrappedText(
     context,
     post.comment,
-    padding,
-    934,
-    width - padding * 2,
-    34,
-    4,
+    contentX,
+    metadataY + 90,
+    contentWidth,
+    38,
+    2,
   );
 
   context.fillStyle = "#374151";
-  context.font = "700 20px system-ui, sans-serif";
-  context.fillText("帰るまでが冒険", padding, 1110);
+  context.font = "400 22px system-ui, sans-serif";
+  context.fillText(
+    `#帰るまでが冒険  #GYAN  #${post.team}班`,
+    contentX,
+    cardY + cardHeight - 58,
+  );
+}
+
+function drawMaterialIcon(
+  context: CanvasRenderingContext2D,
+  name: string,
+  x: number,
+  y: number,
+  size: number,
+  color: string,
+) {
+  context.fillStyle = color;
+  context.font = `500 ${size}px "Material Symbols Rounded"`;
+  context.textBaseline = "middle";
+  context.fillText(name, x, y);
+}
+
+function formatCoordinate([longitude, latitude]: [number, number]): string {
+  const latitudeDirection = latitude >= 0 ? "N" : "S";
+  const longitudeDirection = longitude >= 0 ? "E" : "W";
+  return `${Math.abs(latitude).toFixed(4)}°${latitudeDirection} / ${Math.abs(
+    longitude,
+  ).toFixed(4)}°${longitudeDirection}`;
 }
 
 function drawCoverImage(
