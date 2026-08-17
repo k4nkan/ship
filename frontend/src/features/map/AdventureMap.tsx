@@ -6,11 +6,21 @@ import maplibregl, {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { getMapStyle } from "./mapStyle";
 import {
+  DEFAULT_CAMERA_BEARING,
+  DEFAULT_CAMERA_PITCH,
+  DEFAULT_CAMERA_ROLL,
+  DEFAULT_LOCATION_CAMERA_PAN_Y,
+  INITIAL_LOCATION_ZOOM,
+  LOCATION_CAMERA_PAN_Y,
+  getCurrentCoordinate,
+} from "./camera";
+import {
   ROUTE_COORDINATES,
   ROUTE_MARKERS,
   START_COORDINATE,
   getTraveledRoute,
 } from "./route";
+import { useMapCamera } from "./useMapCamera";
 
 const MAP_ANIMATION_FRAME_MS = 1000 / 20;
 
@@ -18,6 +28,9 @@ type AdventureMapProps = {
   progress: number;
   previousProgress: number;
   recenterRequest: number;
+  followCurrentLocation: boolean;
+  onFollowCurrentLocationChange: (follow: boolean) => void;
+  onRecenterComplete: () => void;
 };
 
 function makeLineString(coordinates: [number, number][]) {
@@ -55,10 +68,22 @@ export function AdventureMap({
   progress,
   previousProgress,
   recenterRequest,
+  followCurrentLocation,
+  onFollowCurrentLocationChange,
+  onRecenterComplete,
 }: AdventureMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+
+  const { handleUserCameraInteraction } = useMapCamera({
+    mapRef,
+    progress,
+    recenterRequest,
+    followCurrentLocation,
+    onFollowCurrentLocationChange,
+    onRecenterComplete,
+  });
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -66,15 +91,42 @@ export function AdventureMap({
     const map = new maplibregl.Map({
       container: containerRef.current,
       attributionControl: false,
-      center: [138, 55],
-      zoom: 2.8,
+      center: getCurrentCoordinate(progress),
+      zoom: INITIAL_LOCATION_ZOOM,
+      bearing: DEFAULT_CAMERA_BEARING,
+      pitch: DEFAULT_CAMERA_PITCH,
+      roll: DEFAULT_CAMERA_ROLL,
       style: getMapStyle(),
     });
     mapRef.current = map;
 
-    const resizeMap = () => map.resize();
+    const setGlobeProjection = () => map.setProjection({ type: "globe" });
+    map.on("style.load", setGlobeProjection);
+    map.on("dragstart", handleUserCameraInteraction);
+    map.on("wheel", handleUserCameraInteraction);
+    map.on("touchstart", handleUserCameraInteraction);
+    map.on("rotatestart", handleUserCameraInteraction);
+    map.on("pitchstart", handleUserCameraInteraction);
+
+    const updateMapPadding = () => {
+      if (mapRef.current !== map) return;
+
+      const statusPanel =
+        document.querySelector<HTMLElement>(".map-status-panel");
+      if (!statusPanel) return;
+
+      const mapRect = map.getContainer().getBoundingClientRect();
+      const panelRect = statusPanel.getBoundingClientRect();
+      const bottomPadding = Math.max(0, mapRect.bottom - panelRect.top + 12);
+      map.setPadding({ ...map.getPadding(), bottom: bottomPadding });
+    };
+    const resizeMap = () => {
+      map.resize();
+      updateMapPadding();
+    };
     window.addEventListener("resize", resizeMap);
     window.visualViewport?.addEventListener("resize", resizeMap);
+    window.requestAnimationFrame(updateMapPadding);
 
     const handleLoad = () => {
       map.addSource("route-full", {
@@ -89,9 +141,12 @@ export function AdventureMap({
         type: "geojson",
         data: {
           type: "FeatureCollection",
-          features: ROUTE_MARKERS.map((point) => ({
+          features: ROUTE_MARKERS.map((point, index) => ({
             type: "Feature" as const,
-            properties: { label: point.label },
+            properties: {
+              label: point.label,
+              kind: index === 0 ? "start" : "route",
+            },
             geometry: { type: "Point" as const, coordinates: point.coordinate },
           })),
         },
@@ -127,10 +182,16 @@ export function AdventureMap({
         type: "circle",
         source: "route-points",
         paint: {
-          "circle-radius": 7,
-          "circle-color": "#111827",
+          "circle-radius": ["match", ["get", "kind"], "start", 11, 7],
+          "circle-color": [
+            "match",
+            ["get", "kind"],
+            "start",
+            "#f59e0b",
+            "#111827",
+          ],
           "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 2,
+          "circle-stroke-width": 3,
         },
       });
       map.addLayer({
@@ -185,6 +246,14 @@ export function AdventureMap({
           "text-halo-width": 2,
         },
       });
+      map.easeTo({
+        center: getCurrentCoordinate(progress),
+        offset: [0, DEFAULT_LOCATION_CAMERA_PAN_Y],
+        bearing: DEFAULT_CAMERA_BEARING,
+        pitch: DEFAULT_CAMERA_PITCH,
+        roll: DEFAULT_CAMERA_ROLL,
+        duration: 0,
+      });
     };
     map.on("load", handleLoad);
 
@@ -195,6 +264,12 @@ export function AdventureMap({
       }
       mapRef.current = null;
       map.off("load", handleLoad);
+      map.off("style.load", setGlobeProjection);
+      map.off("dragstart", handleUserCameraInteraction);
+      map.off("wheel", handleUserCameraInteraction);
+      map.off("touchstart", handleUserCameraInteraction);
+      map.off("rotatestart", handleUserCameraInteraction);
+      map.off("pitchstart", handleUserCameraInteraction);
       window.removeEventListener("resize", resizeMap);
       window.visualViewport?.removeEventListener("resize", resizeMap);
       map.remove();
@@ -257,20 +332,6 @@ export function AdventureMap({
       }
     };
   }, [previousProgress, progress]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || recenterRequest === 0) return;
-
-    const currentCoordinate =
-      getTraveledRoute(progress).at(-1) ?? START_COORDINATE;
-
-    map.flyTo({
-      center: currentCoordinate,
-      zoom: map.getZoom(),
-      duration: 700,
-    });
-  }, [progress, recenterRequest]);
 
   return (
     <div

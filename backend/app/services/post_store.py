@@ -12,6 +12,7 @@ from app.models.posts import AdventurePost, JourneyState, PostInput, PostSummary
 from app.services.gyan import generate_post_result
 from app.services.journey import (
     BASE_SPEED,
+    ROUTE_TARGET_GYAN,
     advance_progress,
     calculate_speed,
     parse_datetime,
@@ -62,6 +63,7 @@ class JsonPostStore:
             totalGyan=total_gyan,
             lastPost=last_post,
             currentSpeed=journey.speed,
+            currentProgress=journey.progress,
         )
 
     def get_journey_state(self) -> JourneyState:
@@ -73,7 +75,7 @@ class JsonPostStore:
             (datetime.now(timezone.utc) - _LOCAL_JOURNEY_STARTED_AT).total_seconds()
             / 3600,
         )
-        progress = min(1, elapsed_hours * speed / 1000)
+        progress = min(1, elapsed_hours * speed / ROUTE_TARGET_GYAN)
         return JourneyState(
             totalGyan=total_gyan,
             progress=progress,
@@ -176,6 +178,7 @@ class SupabasePostStore:
             totalGyan=total_gyan,
             lastPost=last_post,
             currentSpeed=journey.speed,
+            currentProgress=journey.progress,
         )
 
     def get_journey_state(self, total_gyan: int | None = None) -> JourneyState:

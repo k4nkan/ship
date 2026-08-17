@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 
 ROUTE_TARGET_GYAN = 1000
-BASE_SPEED = 20
-GYAN_SPEED_RATE = 0.2
+# 80投稿（平均160 GYAN）を約48時間で進める想定。
+BASE_SPEED = 8
+GYAN_SPEED_RATE = 0.001
 
 
 def calculate_speed(total_gyan: int) -> int:

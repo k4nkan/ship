@@ -45,7 +45,7 @@ create table if not exists public.journey_state (
   id integer primary key default 1 check (id = 1),
   total_gyan integer not null default 0 check (total_gyan >= 0),
   progress numeric not null default 0 check (progress >= 0 and progress <= 1),
-  speed integer not null default 20 check (speed >= 0),
+  speed integer not null default 8 check (speed >= 0),
   updated_at timestamptz not null default now()
 );
 
@@ -53,24 +53,24 @@ create table if not exists public.debug_journey_state (
   id integer primary key default 1 check (id = 1),
   total_gyan integer not null default 0 check (total_gyan >= 0),
   progress numeric not null default 0 check (progress >= 0 and progress <= 1),
-  speed integer not null default 20 check (speed >= 0),
+  speed integer not null default 8 check (speed >= 0),
   updated_at timestamptz not null default now()
 );
 
 insert into public.journey_state (id, total_gyan, progress, speed)
-values (1, 0, 0, 20)
+values (1, 0, 0, 8)
 on conflict (id) do nothing;
 
 insert into public.debug_journey_state (id, total_gyan, progress, speed)
-values (1, 0, 0, 20)
+values (1, 0, 0, 8)
 on conflict (id) do nothing;
 
 update public.journey_state
-set speed = 20
+set speed = 8
 where id = 1 and speed = 0;
 
 update public.debug_journey_state
-set speed = 20
+set speed = 8
 where id = 1 and speed = 0;
 
 alter table public.posts enable row level security;

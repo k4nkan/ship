@@ -32,6 +32,7 @@ class PostSummary(BaseModel):
     totalGyan: int
     lastPost: AdventurePost | None
     currentSpeed: int
+    currentProgress: float
 
 
 class JourneyState(BaseModel):

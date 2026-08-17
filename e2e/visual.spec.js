@@ -34,9 +34,26 @@ test("GYAN posting flow updates the map", async ({ page }) => {
   await expect(page.locator("#map")).toBeVisible();
   await expect(page.locator("#current-gyan")).toHaveText("0");
   await expect(page.locator("#current-area")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "現在地へ移動" }),
-  ).toBeVisible();
+  await expect(page.locator("#current-coordinate")).toBeVisible();
+  await expect(page.locator("#remaining-distance")).toBeVisible();
+  await expect(page.locator("#arrival-time")).toBeVisible();
+  const statusPanelBox = await page.locator(".map-status-panel").boundingBox();
+  expect(statusPanelBox.width).toBeLessThan(340);
+  const currentLocationButton = page.getByRole("button", {
+    name: "現在地へ移動",
+  });
+  await expect(currentLocationButton).toBeVisible();
+  await currentLocationButton.click();
+  await expect(currentLocationButton).toHaveAttribute("aria-pressed", "true");
+  await expect(currentLocationButton).toBeDisabled();
+  await expect(currentLocationButton).toBeEnabled({ timeout: 2000 });
+  await page.mouse.move(300, 180);
+  await page.mouse.down();
+  await page.mouse.move(340, 220);
+  await page.mouse.up();
+  await expect(currentLocationButton).toHaveAttribute("aria-pressed", "false");
+  await currentLocationButton.click();
+  await expect(currentLocationButton).toBeEnabled({ timeout: 2000 });
   await expect(page.getByRole("button", { name: "GYANを送る" })).toBeVisible();
 
   await page.route("**/api/posts", async (route) => {
@@ -66,7 +83,7 @@ test("GYAN posting flow updates the map", async ({ page }) => {
   await expect(page.getByLabel("GYANを生成中…")).toBeVisible();
 
   await expect(page).toHaveURL(/\/result$/);
-  await expect(page.locator("#result-content")).toContainText("GYANレポート");
+  await expect(page.locator("#result-content")).toContainText("レポート");
   await expect(page.getByLabel("投稿画像プレビュー")).toBeVisible();
   const saveButton = page.getByRole("button", { name: "投稿画像を保存" });
   await expect(saveButton).toBeVisible();
