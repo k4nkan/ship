@@ -36,6 +36,7 @@ e2e/                Playwright
 - Node.js
 - Python 3.13
 - make
+- スマホ確認時は cloudflared (`brew install cloudflared`)
 - Supabase project
 - OpenAI API key optional
 
@@ -63,6 +64,8 @@ OPENAI_MODEL=gpt-4o-mini
 SUPABASE_URL=
 SUPABASE_SECRET_KEY=
 SUPABASE_STORAGE_BUCKET=
+SUPABASE_TABLE_PREFIX=debug_
+SUPABASE_STORAGE_PREFIX=debug
 ```
 
 `SUPABASE_SECRET_KEY` はbackend専用です。`VITE_` を付けたり、frontendへ渡したりしないでください。
@@ -84,11 +87,25 @@ make dev
 - frontend: `http://127.0.0.1:5173/`
 - backend: `http://127.0.0.1:8000/health`
 
+### スマホで確認する
+
+Cloudflare Quick Tunnelでローカルfrontendを一時公開します。backendへのAPIリクエストはVite proxy経由でローカルFastAPIへ転送されます。
+
+```sh
+brew install cloudflared
+make dev tunnel
+```
+
+表示された `https://*.trycloudflare.com` のURLをスマホで開いてください。終了は `Ctrl+C` です。
+
+この起動方法でも、backendは `backend/.env` のSupabase / OpenAI設定を使用します。確認後に本番データを整理する前提で、テスト投稿の扱いには注意してください。
+
 ## Makeコマンド
 
 ```sh
 make install
 make dev
+make dev tunnel
 make frontend
 make backend
 make test
@@ -123,7 +140,16 @@ SUPABASE_SECRET_KEY=<your-supabase-secret-key>
 SUPABASE_STORAGE_BUCKET=<your-bucket-name>
 ```
 
-Databaseは `posts` と `journey_state` を使います。RLSは有効で、`service_role` のみアクセス可能です。
+現在のローカル開発とCloud Runは、デバッグ用の `debug_posts` と `debug_journey_state` を使います。RLSは有効で、`service_role` のみアクセス可能です。
+
+`database/schema.sql` は本番用とデバッグ用の両方を作成します。本番テーブルへ切り替える場合だけ、以下のprefixを空文字にします。
+
+```env
+SUPABASE_TABLE_PREFIX=debug_
+SUPABASE_STORAGE_PREFIX=debug
+```
+
+未設定または空文字の場合は本番用の `posts` / `journey_state` と `posts/` を使用します。デバッグ進捗だけを戻す場合は `database/reset_debug_journey_progress.sql` を実行します。
 
 `journey_state` は現在の進捗と速度を保持します。デフォルト速度は `20 GYAN/時` で、累計GYANに応じてbackend側で加速します。
 

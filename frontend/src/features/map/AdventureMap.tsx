@@ -10,7 +10,6 @@ import {
   ROUTE_MARKERS,
   START_COORDINATE,
   getTraveledRoute,
-  sampleRouteCoordinate,
 } from "./route";
 
 const MAP_ANIMATION_FRAME_MS = 1000 / 20;
@@ -72,6 +71,10 @@ export function AdventureMap({
       style: getMapStyle(),
     });
     mapRef.current = map;
+
+    const resizeMap = () => map.resize();
+    window.addEventListener("resize", resizeMap);
+    window.visualViewport?.addEventListener("resize", resizeMap);
 
     const handleLoad = () => {
       map.addSource("route-full", {
@@ -192,6 +195,8 @@ export function AdventureMap({
       }
       mapRef.current = null;
       map.off("load", handleLoad);
+      window.removeEventListener("resize", resizeMap);
+      window.visualViewport?.removeEventListener("resize", resizeMap);
       map.remove();
     };
   }, []);
@@ -203,13 +208,12 @@ export function AdventureMap({
     const updateMap = (routeProgress: number) => {
       if (mapRef.current !== map) return;
 
-      setSourceData(
-        map,
-        "route-progress",
-        makeLineString(getTraveledRoute(routeProgress)),
-      );
+      const traveledRoute = getTraveledRoute(routeProgress);
+      const currentCoordinate = traveledRoute.at(-1) ?? START_COORDINATE;
+
+      setSourceData(map, "route-progress", makeLineString(traveledRoute));
       setSourceData(map, "current-point", {
-        ...makePoint(sampleRouteCoordinate(routeProgress)),
+        ...makePoint(currentCoordinate),
         properties: { label: "現在地" },
       });
     };
@@ -258,8 +262,11 @@ export function AdventureMap({
     const map = mapRef.current;
     if (!map || recenterRequest === 0) return;
 
+    const currentCoordinate =
+      getTraveledRoute(progress).at(-1) ?? START_COORDINATE;
+
     map.flyTo({
-      center: sampleRouteCoordinate(progress),
+      center: currentCoordinate,
       zoom: map.getZoom(),
       duration: 700,
     });

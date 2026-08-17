@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchJourney } from "../api/postsApi";
+import { LoadingScreen } from "../components/LoadingScreen";
 import { AdventureMap } from "../features/map/AdventureMap";
 import {
   getPreviousProgress,
@@ -26,6 +27,7 @@ export function MapPage() {
   const [previousProgress, setPreviousProgress] = useState(0);
   const [recenterRequest, setRecenterRequest] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
   const progressPercent = (displayProgress * 100).toFixed(1);
   const currentArea = getCurrentArea(displayProgress);
 
@@ -52,7 +54,8 @@ export function MapPage() {
           setErrorMessage(
             error instanceof Error ? error.message : "API接続に失敗しました",
           ),
-        );
+        )
+        .finally(() => setIsLoading(false));
     };
 
     loadJourney();
@@ -76,6 +79,10 @@ export function MapPage() {
 
     return () => window.clearInterval(intervalId);
   }, [journey]);
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <section className="screen map-screen">
