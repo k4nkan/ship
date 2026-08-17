@@ -40,6 +40,8 @@ def load_env_file(path: Path) -> None:
 @lru_cache
 def get_settings() -> Settings:
     root_dir = Path(__file__).resolve().parents[3]
+    backend_dir = Path(__file__).resolve().parents[2]
+    load_env_file(backend_dir / ".env")
     load_env_file(root_dir / ".env")
 
     data_file = Path(os.environ.get("DATA_FILE", "backend/data/posts.json"))

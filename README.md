@@ -43,21 +43,18 @@ e2e/                Playwright
 
 ```sh
 make install
-cp .env.example .env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
-`.env` はrootに置きます。
+`.env` はbackend/frontendごとに置きます。rootの `.env` は旧構成用のフォールバックです。
 
-## .env
+## backend/.env
 
 ```env
 PORT=8000
 ALLOWED_ORIGIN=http://127.0.0.1:5173
 DATA_FILE=backend/data/posts.json
-
-VITE_API_BASE_URL=http://127.0.0.1:8000
-VITE_MAP_API_KEY=
-VITE_MAP_STYLE_URL=https://api.maptiler.com/maps/streets-v2/style.json?key={key}
 
 OPENAI_API_KEY=
 OPENAI_ENABLED=false
@@ -69,6 +66,14 @@ SUPABASE_STORAGE_BUCKET=
 ```
 
 `SUPABASE_SECRET_KEY` はbackend専用です。`VITE_` を付けたり、frontendへ渡したりしないでください。
+
+## frontend/.env
+
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_MAP_API_KEY=
+VITE_MAP_STYLE_URL=https://api.maptiler.com/maps/streets-v2/style.json?key={key}
+```
 
 ## ローカル起動
 
@@ -110,7 +115,7 @@ make clean
 1. Supabaseでprojectを作成
 2. SQL Editorで `database/schema.sql` を実行
 3. Storage bucketを作成
-4. `.env` に以下を設定
+4. `backend/.env` に以下を設定
 
 ```env
 SUPABASE_URL=https://xxxxx.supabase.co
@@ -170,3 +175,29 @@ make check
 - database/storage: Supabase
 
 本番では `ALLOWED_ORIGIN` をfrontendの公開URLへ変更します。
+
+## backend CI/CD
+
+`main` に `backend/**` の変更がpushされると、GitHub ActionsでbackendをCloud Runへ再デプロイします。
+
+GitHub repositoryの `Settings > Secrets and variables > Actions` に以下を設定します。
+
+- Secret: `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- Secret: `GCP_SERVICE_ACCOUNT`
+
+`GCP_SERVICE_ACCOUNT` にはCloud Run source deployに必要な権限を付与します。
+
+- `roles/run.sourceDeveloper`
+- `roles/serviceusage.serviceUsageConsumer`
+- Cloud Run service identityへの `roles/iam.serviceAccountUser`
+
+deploy先:
+
+- service: `ship-api`
+- region: `asia-northeast1`
+- source: `backend`
+- scaling: `--min=1 --max=3`
+
+OpenAI/Supabaseなどのruntime環境変数はCloud Run service側に設定します。
+
+手動実行する場合は、GitHub Actionsの `Backend Deploy` から `Run workflow` を使います。
