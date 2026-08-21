@@ -23,7 +23,7 @@ dev:
 		VITE_API_BASE_URL= $(MAKE) -C frontend dev & \
 		frontend_pid=$$!; \
 	else \
-		$(MAKE) -C frontend dev & \
+		VITE_API_BASE_URL=http://127.0.0.1:8000 $(MAKE) -C frontend dev & \
 		frontend_pid=$$!; \
 	fi; \
 	$(MAKE) -C backend dev & \

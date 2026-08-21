@@ -6,7 +6,7 @@ from app.core.config import get_settings
 @lru_cache
 def get_supabase_client():
     settings = get_settings()
-    if not settings.supabase_enabled:
+    if not settings.supabase_database_enabled:
         return None
 
     try:

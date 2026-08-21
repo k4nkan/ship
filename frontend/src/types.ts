@@ -35,3 +35,35 @@ export type JourneyState = {
   speed: number;
   updatedAt: string;
 };
+
+export type CurrencyTransaction = {
+  id: string;
+  amount: number;
+  createdAt: string;
+};
+
+export type RaceState = {
+  isRunning: boolean;
+  elapsedSeconds: number;
+  speedPerHour: number;
+  updatedAt: string;
+};
+
+export type TeamStats = {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  earnedCurrency: number;
+  spentCurrency: number;
+  balance: number;
+  progress: number;
+  rank: number;
+  recentTransactions: CurrencyTransaction[];
+};
+
+export type TeamList = {
+  goalCurrency: number;
+  race: RaceState;
+  teams: TeamStats[];
+};

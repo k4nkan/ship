@@ -1,44 +1,36 @@
 # ship
 
-投稿写真とコメントからGYANを判定し、GYANで船の速度を上げて地図上の進捗を更新するMVPです。
+キャンプ中の良い行動をMCがオリジナル通貨で評価し、A班〜F班の6チーム対抗で極北から立命館への帰還を競うWebアプリです。
 
-## システム概要
+## MVPの画面
 
-```text
-React + Vite
-  -> FastAPI
-    -> Supabase Storage
-    -> OpenAI / Mock
-    -> Supabase Database
-```
+- `/`：全体レース画面。MapLibreの航路、チーム別アイコン、順位、累計獲得通貨、進行度を表示
+- `/teams/:teamId`：チーム詳細。順位、進行度、累計獲得、残高、使用済みを表示
+- `/admin`：MC用画面。チームごとに `+1 / +5 / +10 / +50`、`-5 / -10 / -50` を操作
 
-Supabase未設定時は、ローカル開発用に `backend/data/posts.json` へ保存します。
+`/admin` はbackendの `ADMIN_PASSWORD` で認証します。全体画面にはAdminへのリンクを表示しません。
 
-## アーキテクチャ
-
-- frontend: React画面、画像リサイズ/WebP変換、FastAPI呼び出し
-- backend: API、Supabase SDK、OpenAI/Mock GYAN判定、投稿保存
-- journey: デフォルト速度で常に進み、累計GYANで速度が加算される
-- database: Supabase SQL Editorで実行するschema
-- e2e: Playwrightによる投稿フロー確認
-
-## ディレクトリ構成
+進行度は累計獲得通貨だけで計算し、残高とは分離しています。
 
 ```text
-frontend/           React + Vite + TypeScript
-backend/            FastAPI
-database/schema.sql Supabase Database schema
-e2e/                Playwright
+累計獲得通貨 -> レース進行度
+累計獲得通貨 - 使用通貨 -> 現在残高
 ```
 
-## 必要環境
+ゴールは `1億通貨` です。表示は `10000`、`10 0000`、`100 0000` のようなイベント用の単位にしています。Storage、AI、QR/NFC、通貨ショップはこのMVPでは使用しません。
 
-- Node.js
-- Python 3.13
-- make
-- スマホ確認時は cloudflared (`brew install cloudflared`)
-- Supabase project
-- OpenAI API key optional
+レースの移動はAdmin画面のスタート・ストップで制御します。スタート中は、通貨とは別に一定速度で船が進み、ストップするとその位置で止まります。
+
+## 構成
+
+```text
+React + Vite -> FastAPI -> Supabase Database
+                         └-> 未設定時は backend/data/teams.json
+```
+
+- `frontend/`：3画面、MapLibre、Admin操作
+- `backend/`：チーム取得、通貨履歴の追加・集計
+- `database/schema.sql`：Supabaseに必要なテーブルを作る唯一のSQL
 
 ## セットアップ
 
@@ -46,186 +38,92 @@ e2e/                Playwright
 make install
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
-```
-
-`.env` はbackend/frontendごとに置きます。rootの `.env` は旧構成用のフォールバックです。
-
-## backend/.env
-
-```env
-PORT=8000
-ALLOWED_ORIGIN=http://127.0.0.1:5173
-DATA_FILE=backend/data/posts.json
-
-OPENAI_API_KEY=
-OPENAI_ENABLED=false
-OPENAI_MODEL=gpt-4o-mini
-
-SUPABASE_URL=
-SUPABASE_SECRET_KEY=
-SUPABASE_STORAGE_BUCKET=
-SUPABASE_TABLE_PREFIX=debug_
-SUPABASE_STORAGE_PREFIX=debug
-```
-
-`SUPABASE_SECRET_KEY` はbackend専用です。`VITE_` を付けたり、frontendへ渡したりしないでください。
-
-## frontend/.env
-
-```env
-VITE_API_BASE_URL=http://127.0.0.1:8000
-VITE_MAP_API_KEY=
-VITE_MAP_STYLE_URL=https://api.maptiler.com/maps/streets-v2/style.json?key={key}
-```
-
-## ローカル起動
-
-```sh
 make dev
 ```
 
 - frontend: `http://127.0.0.1:5173/`
 - backend: `http://127.0.0.1:8000/health`
 
-### スマホで確認する
+Supabaseを使わないローカル確認では、`SUPABASE_URL` と `SUPABASE_SECRET_KEY` を空にします。チームデータは `backend/data/teams.json` に保存されます。
 
-Cloudflare Quick Tunnelでローカルfrontendを一時公開します。backendへのAPIリクエストはVite proxy経由でローカルFastAPIへ転送されます。
+## frontendとbackendの接続先
 
-```sh
-brew install cloudflared
-make dev tunnel
-```
+接続先は環境ごとに分かれています。
 
-表示された `https://*.trycloudflare.com` のURLをスマホで開いてください。終了は `Ctrl+C` です。
-
-この起動方法でも、backendは `backend/.env` のSupabase / OpenAI設定を使用します。確認後に本番データを整理する前提で、テスト投稿の扱いには注意してください。
-
-## Makeコマンド
-
-```sh
-make install
+```text
 make dev
-make dev tunnel
-make frontend
-make backend
-make test
-make lint
-make typecheck
-make build
-make check
-make clean
+  frontend 127.0.0.1:5173 -> backend 127.0.0.1:8000
+
+Vercel Production
+  frontend ship.k4nkan.com -> Cloud Run ship-api
 ```
+
+`make dev` はMakefileからローカルAPI URLを明示するため、`frontend/.env` に古い本番URLが残っていてもローカルbackendを使用します。`make dev tunnel` はVite proxy経由で `/api` をローカルbackendへ転送します。
+
+VercelのProduction環境変数には、次を設定してください。
+
+```env
+VITE_API_BASE_URL=https://ship-api-774806497724.asia-northeast1.run.app
+```
+
+本番backendは `backend/**` の変更をmainへpushするとCloud Runへデプロイされます。frontendはVercelの自動デプロイと、Vercel側のProduction環境変数を使用します。
+
+## backend/.env
+
+```env
+PORT=8000
+ALLOWED_ORIGIN=http://127.0.0.1:5173
+TEAMS_DATA_FILE=backend/data/teams.json
+ADMIN_PASSWORD=管理画面用パスワード
+
+SUPABASE_URL=
+SUPABASE_SECRET_KEY=
+SUPABASE_TABLE_PREFIX=debug_
+```
+
+`SUPABASE_SECRET_KEY` はbackend専用です。frontendへ渡したり、コミットしたりしないでください。通貨MVPはSupabaseのDatabaseだけを使うため、`SUPABASE_STORAGE_BUCKET` は不要です。
+
+`ADMIN_PASSWORD` もbackend専用です。`VITE_ADMIN_PASSWORD` のようにfrontendの環境変数へ置かないでください。
+
+## Supabase DB
+
+Supabase DashboardのSQL Editorで `database/schema.sql` の全文を貼り付けて、1回だけ実行してください。
+
+このSQLは `teams` / `currency_transactions` / `race_state` と、ローカル開発で使う `debug_` 付きの3テーブルを作成します。`if not exists` と `on conflict` を使っているため、既存データを削除しません。
+
+現在のローカル設定は `SUPABASE_TABLE_PREFIX=debug_` のため、`make dev` は `debug_teams` / `debug_currency_transactions` / `debug_race_state` を使います。
+
+テーブルは次の2つです。
+
+- `teams`：チーム名、カラー、アイコン
+- `currency_transactions`：`team_id` と `amount` の履歴。正数が配布、負数が使用
+
+RLSを有効にし、アプリのbackendが使う `service_role` だけにアクセスを許可しています。frontendからSupabaseへ直接アクセスしません。
 
 ## API
 
 - `GET /health`
-- `GET /api/health`
-- `GET /api/posts`
-- `GET /api/posts/{id}`
-- `POST /api/posts`
-- `DELETE /api/posts`
-- `GET /api/journey`
-- `POST /api/gyan/generate`
+- `GET /api/teams`
+- `POST /api/teams/:teamId/currency` body: `{ "amount": 10 }`
 
-## Supabase設定
+負数の操作で残高が不足する場合は `409` を返し、履歴を追加しません。
 
-1. Supabaseでprojectを作成
-2. SQL Editorで `database/schema.sql` を実行
-3. Storage bucketを作成
-4. `backend/.env` に以下を設定
-
-```env
-SUPABASE_URL=https://xxxxx.supabase.co
-SUPABASE_SECRET_KEY=<your-supabase-secret-key>
-SUPABASE_STORAGE_BUCKET=<your-bucket-name>
-```
-
-現在のローカル開発とCloud Runは、デバッグ用の `debug_posts` と `debug_journey_state` を使います。RLSは有効で、`service_role` のみアクセス可能です。
-
-`database/schema.sql` は本番用とデバッグ用の両方を作成します。本番テーブルへ切り替える場合だけ、以下のprefixを空文字にします。
-
-```env
-SUPABASE_TABLE_PREFIX=debug_
-SUPABASE_STORAGE_PREFIX=debug
-```
-
-未設定または空文字の場合は本番用の `posts` / `journey_state` と `posts/` を使用します。デバッグ進捗だけを戻す場合は `database/reset_debug_journey_progress.sql` を実行します。
-
-`journey_state` は現在の進捗と速度を保持します。デフォルト速度は `20 GYAN/時` で、累計GYANに応じてbackend側で加速します。
-
-Storage bucketはMVPではbackend経由でアップロードします。ResultPageで画像を表示するため、backendは署名付きURLを返します。
-
-## OpenAI / Mock切り替え
-
-デフォルトはMockです。
-
-```env
-OPENAI_ENABLED=false
-```
-
-実APIを使う場合:
-
-```env
-OPENAI_API_KEY=<your-openai-api-key>
-OPENAI_ENABLED=true
-OPENAI_MODEL=gpt-4o-mini
-```
-
-AIは `small` / `medium` / `large` / `huge` のランクだけを返し、GYAN数値はbackendで固定変換します。
-
-## テスト
+## 確認
 
 ```sh
 make check
 ```
 
-実行内容:
+個別に確認する場合は次を使います。
 
-- frontend typecheck/build
-- backend compile
-- e2e Playwright
+```sh
+make -C frontend lint
+make -C backend lint
+make -C e2e test
+```
 
-## 未実装
+スマホから確認する場合は、frontendをVite proxy経由で公開する既存の手順を使えます。
 
-- Signed Upload URL方式
-- Supabase Realtime
-- 認証
-- 生成結果画像
-- Three.js / GSAP
-- 投稿一覧
-
-## デプロイ想定
-
-- frontend: static hosting
-- backend: FastAPIを常駐実行できる環境
-- database/storage: Supabase
-
-本番では `ALLOWED_ORIGIN` をfrontendの公開URLへ変更します。
-
-## backend CI/CD
-
-`main` に `backend/**` の変更がpushされると、GitHub ActionsでbackendをCloud Runへ再デプロイします。
-
-GitHub repositoryの `Settings > Secrets and variables > Actions` に以下を設定します。
-
-- `GCP_WORKLOAD_IDENTITY_PROVIDER`: `projects/774806497724/locations/global/workloadIdentityPools/github/providers/ship`
-- `GCP_SERVICE_ACCOUNT`: `github-actions-deployer@ship-505808.iam.gserviceaccount.com`
-
-`GCP_SERVICE_ACCOUNT` にはCloud Run source deployに必要な権限を付与します。
-
-- `roles/run.sourceDeveloper`
-- `roles/serviceusage.serviceUsageConsumer`
-- `ship-api-runtime@ship-505808.iam.gserviceaccount.com` への `roles/iam.serviceAccountUser`
-
-source buildには `ship-api-builder@ship-505808.iam.gserviceaccount.com` を使用し、`roles/run.builder` を付与します。`GCP_SERVICE_ACCOUNT` には、このbuild service accountへの `roles/iam.serviceAccountUser` も付与します。
-
-deploy先:
-
-- service: `ship-api`
-- region: `asia-northeast1`
-- source: `backend`
-- scaling: `--min=1 --max=3`
-
-OpenAI/Supabaseなどのruntime環境変数はCloud Run service側に設定します。
-
-手動実行する場合は、GitHub Actionsの `Backend Deploy` から `Run workflow` を使います。
+```sh
+make dev tunnel
+```

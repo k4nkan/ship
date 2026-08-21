@@ -12,7 +12,7 @@ module.exports = defineConfig({
   webServer: [
     {
       command:
-        "ALLOWED_ORIGIN=http://127.0.0.1:5174 OPENAI_ENABLED=false SUPABASE_URL= SUPABASE_SECRET_KEY= SUPABASE_SERVICE_ROLE_KEY= SUPABASE_STORAGE_BUCKET= make -C ../backend dev PORT=8010",
+        "ALLOWED_ORIGIN=http://127.0.0.1:5174 ADMIN_PASSWORD=test-admin-password OPENAI_ENABLED=false SUPABASE_URL= SUPABASE_SECRET_KEY= SUPABASE_SERVICE_ROLE_KEY= SUPABASE_STORAGE_BUCKET= make -C ../backend dev PORT=8010",
       url: "http://127.0.0.1:8010/api/health",
       reuseExistingServer: false,
     },

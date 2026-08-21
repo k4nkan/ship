@@ -4,6 +4,7 @@ import type { EaseToOptions, Map as MapLibreMap } from "maplibre-gl";
 export const CURRENT_LOCATION_ZOOM = 11;
 export const INITIAL_LOCATION_ZOOM = CURRENT_LOCATION_ZOOM;
 export const MAX_CURRENT_LOCATION_ZOOM = 15;
+export const SELECTED_TEAM_FOCUS_ZOOM = 5;
 export const LOCATION_CAMERA_PAN_Y = 110;
 export const DEFAULT_LOCATION_CAMERA_PAN_Y = 84;
 export const DEFAULT_CAMERA_BEARING = 0;

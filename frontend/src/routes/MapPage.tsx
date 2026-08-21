@@ -1,108 +1,74 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { fetchJourney } from "../api/postsApi";
+import { fetchTeams } from "../api/postsApi";
 import { LoadingScreen } from "../components/LoadingScreen";
 import { AdventureMap } from "../features/map/AdventureMap";
-import {
-  getCurrentRouteLabel,
-  ROUTE_TARGET_GYAN,
-  sampleRouteCoordinate,
-} from "../features/map/route";
-import {
-  getPreviousProgress,
-  savePreviousProgress,
-} from "../lib/routeProgressStorage";
 import { useCurrentLocationControl } from "../hooks/useCurrentLocationControl";
-import type { JourneyState } from "../types";
+import { formatCurrency } from "../lib/currency";
+import type { TeamStats } from "../types";
 
-const emptyJourney: JourneyState = {
-  totalGyan: 0,
-  progress: 0,
-  speed: 8,
-  updatedAt: "",
-};
-const JOURNEY_SYNC_INTERVAL_MS = 60_000;
-const LOCAL_PROGRESS_INTERVAL_MS = 1_000;
+const TEAM_SYNC_INTERVAL_MS = 10_000;
 
 export function MapPage() {
-  const navigate = useNavigate();
-  const displayProgressRef = useRef(0);
-  const [journey, setJourney] = useState<JourneyState>(emptyJourney);
-  const [displayProgress, setDisplayProgress] = useState(0);
-  const [previousProgress, setPreviousProgress] = useState(0);
+  const [teams, setTeams] = useState<TeamStats[]>([]);
+  const [previousTeams, setPreviousTeams] = useState<TeamStats[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState(0);
+  const [goalCurrency, setGoalCurrency] = useState(100_000_000);
+  const [overviewRequest, setOverviewRequest] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const teamsRef = useRef<TeamStats[]>([]);
   const currentLocation = useCurrentLocationControl();
-  const currentArea = getCurrentRouteLabel(displayProgress);
-  const currentCoordinate = sampleRouteCoordinate(displayProgress);
-  const remainingDistance = Math.max(
-    0,
-    Math.ceil((1 - displayProgress) * ROUTE_TARGET_GYAN),
-  );
-  const estimatedArrivalTime = getEstimatedArrivalTime(
-    displayProgress,
-    journey.speed,
-  );
 
   useEffect(() => {
-    const savedProgress = getPreviousProgress();
-    displayProgressRef.current = savedProgress;
-    setDisplayProgress(savedProgress);
-
-    const loadJourney = () => {
-      fetchJourney()
-        .then((nextJourney) => {
-          const projectedProgress = getLocalJourneyProgress(nextJourney);
-          const startProgress = Math.min(
-            displayProgressRef.current || savedProgress,
-            projectedProgress,
-          );
-          displayProgressRef.current = projectedProgress;
-          setJourney(nextJourney);
-          setPreviousProgress(startProgress);
-          setDisplayProgress(projectedProgress);
-          savePreviousProgress(projectedProgress);
+    const loadTeams = () => {
+      fetchTeams()
+        .then((result) => {
+          setPreviousTeams(teamsRef.current);
+          teamsRef.current = result.teams;
+          setTeams(result.teams);
+          setGoalCurrency(result.goalCurrency);
+          setErrorMessage("");
         })
         .catch((error) =>
           setErrorMessage(
             error instanceof Error ? error.message : "API接続に失敗しました",
           ),
-        )
-        .finally(() => setIsLoading(false));
+        );
     };
 
-    loadJourney();
-    const intervalId = window.setInterval(
-      loadJourney,
-      JOURNEY_SYNC_INTERVAL_MS,
-    );
+    loadTeams();
+    const intervalId = window.setInterval(loadTeams, TEAM_SYNC_INTERVAL_MS);
     return () => window.clearInterval(intervalId);
   }, []);
 
-  useEffect(() => {
-    if (!journey.updatedAt) return;
-
-    const intervalId = window.setInterval(() => {
-      const nextProgress = getLocalJourneyProgress(journey);
-      setPreviousProgress(displayProgressRef.current);
-      displayProgressRef.current = nextProgress;
-      setDisplayProgress(nextProgress);
-      savePreviousProgress(nextProgress);
-    }, LOCAL_PROGRESS_INTERVAL_MS);
-
-    return () => window.clearInterval(intervalId);
-  }, [journey]);
-
-  if (isLoading) {
+  if (!teams.length) {
+    if (errorMessage) {
+      return (
+        <section className="screen centered-screen">
+          <div className="content-panel">
+            <p className="form-error">{errorMessage}</p>
+          </div>
+        </section>
+      );
+    }
     return <LoadingScreen />;
   }
+
+  const leader = [...teams].sort((left, right) => left.rank - right.rank)[0];
+  const selectedTeam = teams.find((team) => team.id === selectedTeamId);
+  const previousLeader = previousTeams.find((team) => team.id === leader.id);
 
   return (
     <section className="screen map-screen">
       <div className="map-area">
         <AdventureMap
-          progress={displayProgress}
-          previousProgress={previousProgress}
+          teams={teams}
+          previousTeams={previousTeams}
+          progress={leader.progress}
+          focusProgress={selectedTeam?.progress ?? leader.progress}
+          focusRequest={focusRequest}
+          overviewRequest={overviewRequest}
+          previousProgress={previousLeader?.progress ?? leader.progress}
           recenterRequest={currentLocation.requestId}
           followCurrentLocation={currentLocation.followCurrentLocation}
           onFollowCurrentLocationChange={
@@ -111,36 +77,48 @@ export function MapPage() {
           onRecenterComplete={currentLocation.completeRecenter}
         />
       </div>
-      <aside className="map-status-panel" aria-label="現在の状況">
-        <div className="map-status-grid">
-          <div className="map-status-metrics">
-            <div className="map-status-item">
-              <span>速度</span>
-              <strong id="current-speed">{journey.speed}</strong>
-              <small>gyan/h</small>
-            </div>
-            <div className="map-status-item">
-              <span>累計</span>
-              <strong id="current-gyan">{journey.totalGyan}</strong>
-              <small>gyan</small>
-            </div>
-            <div className="map-status-item">
-              <span>残り</span>
-              <strong id="remaining-distance">{remainingDistance}</strong>
-              <small>km</small>
-            </div>
+      <aside
+        className="map-status-panel race-status-panel"
+        aria-label="チーム順位"
+      >
+        <div className="race-status-heading">
+          <div>
+            <p className="eyebrow">EXPEDITION RACE</p>
+            <h1>帰還レース</h1>
           </div>
-          <div className="map-status-item map-status-item-detail">
-            <span>現在のエリア</span>
-            <strong id="current-area">{currentArea}</strong>
-            <small id="current-coordinate">
-              {formatCoordinate(currentCoordinate)}
-            </small>
-          </div>
-          <div className="map-status-item map-status-item-detail">
-            <span>到着予定時刻</span>
-            <strong id="arrival-time">{estimatedArrivalTime}</strong>
-          </div>
+        </div>
+        <p className="race-goal">
+          極北 → 立命館 / ゴール {formatCurrency(goalCurrency)} 通貨
+        </p>
+        <div className="race-team-list">
+          {[...teams]
+            .sort((left, right) => left.rank - right.rank)
+            .map((team) => (
+              <button
+                className="race-team-row"
+                key={team.id}
+                type="button"
+                aria-pressed={selectedTeamId === team.id}
+                onClick={() => {
+                  setSelectedTeamId(team.id);
+                  setFocusRequest((request) => request + 1);
+                }}
+              >
+                <span className="race-rank">{team.rank}</span>
+                <span
+                  className="team-color-dot"
+                  style={{ backgroundColor: team.color }}
+                  aria-hidden="true"
+                />
+                <span className="race-team-name">
+                  {team.icon} {team.name}
+                </span>
+                <span className="race-team-score">
+                  <strong>{formatCurrency(team.earnedCurrency)}</strong>
+                  <small>{Math.round(team.progress * 100)}%</small>
+                </span>
+              </button>
+            ))}
         </div>
         {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
       </aside>
@@ -148,64 +126,18 @@ export function MapPage() {
         <button
           className="map-icon-button"
           type="button"
-          aria-label="現在地へ移動"
-          title="現在地へ移動"
-          aria-pressed={currentLocation.followCurrentLocation}
-          disabled={currentLocation.isRecentering}
-          onClick={currentLocation.requestRecenter}
+          aria-label="全体を見る"
+          title="全体を見る"
+          onClick={() => {
+            setSelectedTeamId(null);
+            setOverviewRequest((request) => request + 1);
+          }}
         >
           <span className="material-symbols-rounded" aria-hidden="true">
-            my_location
-          </span>
-        </button>
-        <button
-          className="map-icon-button map-add-button"
-          type="button"
-          aria-label="GYANを送る"
-          title="GYANを送る"
-          onClick={() => navigate("/post")}
-        >
-          <span className="material-symbols-rounded" aria-hidden="true">
-            add
+            public
           </span>
         </button>
       </div>
     </section>
   );
-}
-
-function getLocalJourneyProgress(journey: JourneyState): number {
-  const updatedAt = Date.parse(journey.updatedAt);
-  if (Number.isNaN(updatedAt)) {
-    return journey.progress;
-  }
-
-  const elapsedHours = Math.max(0, Date.now() - updatedAt) / 1000 / 3600;
-  return Math.min(
-    1,
-    journey.progress + (elapsedHours * journey.speed) / ROUTE_TARGET_GYAN,
-  );
-}
-
-function getEstimatedArrivalTime(progress: number, speed: number): string {
-  if (progress >= 1) return "到着済み";
-  if (speed <= 0) return "計算中";
-
-  const remainingHours = ((1 - progress) * ROUTE_TARGET_GYAN) / speed;
-  const arrivalTime = new Date(Date.now() + remainingHours * 60 * 60 * 1000);
-
-  return new Intl.DateTimeFormat("ja-JP", {
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(arrivalTime);
-}
-
-function formatCoordinate([longitude, latitude]: [number, number]): string {
-  const latitudeDirection = latitude >= 0 ? "N" : "S";
-  const longitudeDirection = longitude >= 0 ? "E" : "W";
-  return `${Math.abs(latitude).toFixed(4)}°${latitudeDirection} / ${Math.abs(
-    longitude,
-  ).toFixed(4)}°${longitudeDirection}`;
 }

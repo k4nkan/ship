@@ -1,5 +1,6 @@
 export const START_COORDINATE: [number, number] = [0, 85];
 export const GOAL_COORDINATE: [number, number] = [135.5613416, 34.8096024];
+export const ROUTE_TARGET_CURRENCY = 100_000_000;
 export const ROUTE_TARGET_GYAN = 1000;
 
 export type RouteSpot = {

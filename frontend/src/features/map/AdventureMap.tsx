@@ -4,6 +4,7 @@ import maplibregl, {
   type Map as MapLibreMap,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import type { TeamStats } from "../../types";
 import { getMapStyle } from "./mapStyle";
 import {
   DEFAULT_CAMERA_BEARING,
@@ -11,8 +12,6 @@ import {
   DEFAULT_CAMERA_ROLL,
   DEFAULT_LOCATION_CAMERA_PAN_Y,
   INITIAL_LOCATION_ZOOM,
-  LOCATION_CAMERA_PAN_Y,
-  getCurrentCoordinate,
 } from "./camera";
 import {
   ROUTE_COORDINATES,
@@ -25,7 +24,12 @@ import { useMapCamera } from "./useMapCamera";
 const MAP_ANIMATION_FRAME_MS = 1000 / 20;
 
 type AdventureMapProps = {
+  teams: TeamStats[];
+  previousTeams: TeamStats[];
   progress: number;
+  focusProgress: number;
+  focusRequest: number;
+  overviewRequest: number;
   previousProgress: number;
   recenterRequest: number;
   followCurrentLocation: boolean;
@@ -44,10 +48,10 @@ function makeLineString(coordinates: [number, number][]) {
   };
 }
 
-function makePoint(coordinate: [number, number]) {
+function makePoint(coordinate: [number, number], label: string) {
   return {
     type: "Feature" as const,
-    properties: {},
+    properties: { label },
     geometry: {
       type: "Point" as const,
       coordinates: coordinate,
@@ -64,9 +68,17 @@ function setSourceData(
   source?.setData(data);
 }
 
+function sourceId(kind: string, teamId: string): string {
+  return `team-${kind}-${teamId}`;
+}
+
 export function AdventureMap({
+  teams,
+  previousTeams,
   progress,
-  previousProgress,
+  focusProgress,
+  focusRequest,
+  overviewRequest,
   recenterRequest,
   followCurrentLocation,
   onFollowCurrentLocationChange,
@@ -79,6 +91,9 @@ export function AdventureMap({
   const { handleUserCameraInteraction } = useMapCamera({
     mapRef,
     progress,
+    focusProgress,
+    focusRequest,
+    overviewRequest,
     recenterRequest,
     followCurrentLocation,
     onFollowCurrentLocationChange,
@@ -91,7 +106,7 @@ export function AdventureMap({
     const map = new maplibregl.Map({
       container: containerRef.current,
       attributionControl: false,
-      center: getCurrentCoordinate(progress),
+      center: [0, 85],
       zoom: INITIAL_LOCATION_ZOOM,
       bearing: DEFAULT_CAMERA_BEARING,
       pitch: DEFAULT_CAMERA_PITCH,
@@ -117,8 +132,8 @@ export function AdventureMap({
 
       const mapRect = map.getContainer().getBoundingClientRect();
       const panelRect = statusPanel.getBoundingClientRect();
-      const bottomPadding = Math.max(0, mapRect.bottom - panelRect.top + 12);
-      map.setPadding({ ...map.getPadding(), bottom: bottomPadding });
+      const topPadding = Math.max(0, panelRect.bottom - mapRect.top + 12);
+      map.setPadding({ ...map.getPadding(), top: topPadding, bottom: 0 });
     };
     const resizeMap = () => {
       map.resize();
@@ -132,10 +147,6 @@ export function AdventureMap({
       map.addSource("route-full", {
         type: "geojson",
         data: makeLineString(ROUTE_COORDINATES),
-      });
-      map.addSource("route-progress", {
-        type: "geojson",
-        data: makeLineString([START_COORDINATE]),
       });
       map.addSource("route-points", {
         type: "geojson",
@@ -151,13 +162,6 @@ export function AdventureMap({
           })),
         },
       });
-      map.addSource("current-point", {
-        type: "geojson",
-        data: {
-          ...makePoint(START_COORDINATE),
-          properties: { label: "現在地" },
-        },
-      });
 
       map.addLayer({
         id: "route-full",
@@ -169,13 +173,6 @@ export function AdventureMap({
           "line-width": 4,
           "line-opacity": 0.5,
         },
-      });
-      map.addLayer({
-        id: "route-progress",
-        type: "line",
-        source: "route-progress",
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#dc2626", "line-width": 5 },
       });
       map.addLayer({
         id: "route-points",
@@ -209,45 +206,60 @@ export function AdventureMap({
           "text-halo-width": 2,
         },
       });
-      map.addLayer({
-        id: "current-point-halo",
-        type: "circle",
-        source: "current-point",
-        paint: {
-          "circle-radius": 24,
-          "circle-color": "#bfdbfe",
-          "circle-opacity": 0.72,
-        },
+
+      teams.forEach((team) => {
+        const point =
+          getTraveledRoute(team.progress).at(-1) ?? START_COORDINATE;
+        map.addSource(sourceId("route", team.id), {
+          type: "geojson",
+          data: makeLineString(getTraveledRoute(team.progress)),
+        });
+        map.addSource(sourceId("point", team.id), {
+          type: "geojson",
+          data: makePoint(point, `${team.icon} ${team.name}`),
+        });
+        map.addLayer({
+          id: sourceId("route", team.id),
+          type: "line",
+          source: sourceId("route", team.id),
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": team.color,
+            "line-width": 5,
+            "line-opacity": 0.85,
+          },
+        });
+        map.addLayer({
+          id: sourceId("point", team.id),
+          type: "circle",
+          source: sourceId("point", team.id),
+          paint: {
+            "circle-radius": 13,
+            "circle-color": team.color,
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": 3,
+          },
+        });
+        map.addLayer({
+          id: sourceId("label", team.id),
+          type: "symbol",
+          source: sourceId("point", team.id),
+          layout: {
+            "text-field": ["get", "label"],
+            "text-size": 13,
+            "text-offset": [0, -1.7],
+            "text-anchor": "bottom",
+          },
+          paint: {
+            "text-color": team.color,
+            "text-halo-color": "#ffffff",
+            "text-halo-width": 2,
+          },
+        });
       });
-      map.addLayer({
-        id: "current-point",
-        type: "circle",
-        source: "current-point",
-        paint: {
-          "circle-radius": 13,
-          "circle-color": "#2563eb",
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 3,
-        },
-      });
-      map.addLayer({
-        id: "current-point-label",
-        type: "symbol",
-        source: "current-point",
-        layout: {
-          "text-field": ["get", "label"],
-          "text-size": 13,
-          "text-offset": [0, -1.7],
-          "text-anchor": "bottom",
-        },
-        paint: {
-          "text-color": "#1d4ed8",
-          "text-halo-color": "#ffffff",
-          "text-halo-width": 2,
-        },
-      });
+
       map.easeTo({
-        center: getCurrentCoordinate(progress),
+        center: getTraveledRoute(progress).at(-1) ?? START_COORDINATE,
         offset: [0, DEFAULT_LOCATION_CAMERA_PAN_Y],
         bearing: DEFAULT_CAMERA_BEARING,
         pitch: DEFAULT_CAMERA_PITCH,
@@ -280,27 +292,38 @@ export function AdventureMap({
     const map = mapRef.current;
     if (!map) return;
 
-    const updateMap = (routeProgress: number) => {
+    const updateMap = (nextProgressByTeam: Map<string, number>) => {
       if (mapRef.current !== map) return;
 
-      const traveledRoute = getTraveledRoute(routeProgress);
-      const currentCoordinate = traveledRoute.at(-1) ?? START_COORDINATE;
-
-      setSourceData(map, "route-progress", makeLineString(traveledRoute));
-      setSourceData(map, "current-point", {
-        ...makePoint(currentCoordinate),
-        properties: { label: "現在地" },
+      teams.forEach((team) => {
+        const teamProgress = nextProgressByTeam.get(team.id) ?? team.progress;
+        const traveledRoute = getTraveledRoute(teamProgress);
+        const currentCoordinate = traveledRoute.at(-1) ?? START_COORDINATE;
+        setSourceData(
+          map,
+          sourceId("route", team.id),
+          makeLineString(traveledRoute),
+        );
+        setSourceData(
+          map,
+          sourceId("point", team.id),
+          makePoint(currentCoordinate, `${team.icon} ${team.name}`),
+        );
       });
     };
 
     if (!map.isStyleLoaded()) {
-      const handleLoad = () => updateMap(progress);
+      const handleLoad = () =>
+        updateMap(new Map(teams.map((team) => [team.id, team.progress])));
       map.once("load", handleLoad);
       return () => map.off("load", handleLoad);
     }
 
+    const previousProgressByTeam = new Map(
+      previousTeams.map((team) => [team.id, team.progress]),
+    );
+    const durationMs = previousTeams.length === 0 ? 0 : 9000;
     const startedAt = performance.now();
-    const durationMs = previousProgress === progress ? 0 : 900;
     let lastUpdatedAt = 0;
 
     const tick = (time: number) => {
@@ -312,8 +335,18 @@ export function AdventureMap({
         animationProgress === 1 ||
         time - lastUpdatedAt >= MAP_ANIMATION_FRAME_MS
       ) {
-        const eased = 1 - (1 - animationProgress) ** 3;
-        updateMap(previousProgress + (progress - previousProgress) * eased);
+        const eased = animationProgress;
+        const nextProgressByTeam = new Map(
+          teams.map((team) => {
+            const previousProgress =
+              previousProgressByTeam.get(team.id) ?? team.progress;
+            return [
+              team.id,
+              previousProgress + (team.progress - previousProgress) * eased,
+            ];
+          }),
+        );
+        updateMap(nextProgressByTeam);
         lastUpdatedAt = time;
       }
 
@@ -331,14 +364,14 @@ export function AdventureMap({
         animationFrameRef.current = null;
       }
     };
-  }, [previousProgress, progress]);
+  }, [previousTeams, teams]);
 
   return (
     <div
       id="map"
       ref={containerRef}
       className="map-canvas"
-      aria-label="極北から立命館までの地図"
+      aria-label="極北から立命館までのチーム別地図"
     />
   );
 }

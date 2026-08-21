@@ -8,6 +8,9 @@ class Settings(BaseModel):
     port: int = 8000
     allowed_origin: str = "http://127.0.0.1:5173"
     data_file: Path = Path("backend/data/posts.json")
+    teams_data_file: Path = Path("backend/data/teams.json")
+    admin_password: str = ""
+    race_speed_per_hour: float = 0.03
     openai_api_key: str = ""
     openai_enabled: bool = False
     openai_model: str = "gpt-4o-mini"
@@ -32,6 +35,22 @@ class Settings(BaseModel):
     @property
     def supabase_journey_table(self) -> str:
         return f"{self.supabase_table_prefix}journey_state"
+
+    @property
+    def supabase_database_enabled(self) -> bool:
+        return bool(self.supabase_url and self.supabase_secret_key)
+
+    @property
+    def supabase_teams_table(self) -> str:
+        return f"{self.supabase_table_prefix}teams"
+
+    @property
+    def supabase_currency_transactions_table(self) -> str:
+        return f"{self.supabase_table_prefix}currency_transactions"
+
+    @property
+    def supabase_race_table(self) -> str:
+        return f"{self.supabase_table_prefix}race_state"
 
     @property
     def supabase_storage_path_prefix(self) -> str:
@@ -63,10 +82,19 @@ def get_settings() -> Settings:
     if not data_file.is_absolute():
         data_file = root_dir / data_file
 
+    teams_data_file = Path(
+        os.environ.get("TEAMS_DATA_FILE", "backend/data/teams.json")
+    )
+    if not teams_data_file.is_absolute():
+        teams_data_file = root_dir / teams_data_file
+
     return Settings(
         port=int(os.environ.get("PORT", "8000")),
         allowed_origin=os.environ.get("ALLOWED_ORIGIN", "http://127.0.0.1:5173"),
         data_file=data_file,
+        teams_data_file=teams_data_file,
+        admin_password=os.environ.get("ADMIN_PASSWORD", ""),
+        race_speed_per_hour=float(os.environ.get("RACE_SPEED_PER_HOUR", "0.03")),
         openai_api_key=os.environ.get("OPENAI_API_KEY", ""),
         openai_enabled=os.environ.get("OPENAI_ENABLED", "false").lower() == "true",
         openai_model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),

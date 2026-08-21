@@ -495,6 +495,377 @@ body:has(.map-screen) {
   flex: 1 1 160px;
 }
 
+.centered-screen {
+  display: grid;
+  place-items: center;
+}
+
+.text-link,
+.admin-link {
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.eyebrow {
+  margin: 0 0 5px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.screen-description,
+.race-goal {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+}
+
+.race-status-panel {
+  top: 20px;
+  bottom: auto;
+  width: min(390px, calc(100% - 96px));
+  padding: 16px;
+}
+
+.race-status-heading,
+.admin-header,
+.admin-team-heading,
+.team-title-row,
+.progress-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.race-status-heading h1,
+.team-title-row h1,
+.admin-header h1 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.race-goal {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.race-team-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+}
+
+.race-team-row {
+  display: grid;
+  grid-template-columns: 20px 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+}
+
+.race-team-row:hover {
+  background: #f3f4f6;
+}
+
+.race-team-row.is-selected,
+.race-team-row[aria-pressed="true"] {
+  background: #e0e7ff;
+  box-shadow: none;
+}
+
+.race-team-row.is-selected:hover,
+.race-team-row[aria-pressed="true"]:hover {
+  background: #dbeafe;
+}
+
+.race-rank {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.team-color-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.18);
+}
+
+.race-team-name {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.race-team-score {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+}
+
+.race-team-score strong {
+  font-size: 14px;
+}
+
+.race-team-score small {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.team-panel,
+.admin-panel,
+.admin-login-panel {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  border-radius: 16px;
+  padding: 32px;
+}
+
+.admin-login-panel {
+  width: min(420px, 100%);
+}
+
+.admin-login-form {
+  display: grid;
+  gap: 16px;
+}
+
+.team-header {
+  display: grid;
+  justify-items: start;
+  gap: 18px;
+}
+
+.team-title-row {
+  justify-content: flex-start;
+}
+
+.team-title-row h1 {
+  font-size: 32px;
+}
+
+.team-rank-card,
+.team-progress-card,
+.team-history,
+.admin-team-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: var(--panel-background);
+}
+
+.team-rank-card {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 18px 20px;
+}
+
+.team-rank-card span,
+.team-metric span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.team-rank-card strong {
+  font-size: 30px;
+}
+
+.team-progress-card {
+  margin-bottom: 14px;
+  padding: 20px;
+}
+
+.progress-card-heading {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.progress-card-heading strong {
+  color: var(--text-primary);
+  font-size: 24px;
+}
+
+.currency-progress-track {
+  height: 12px;
+  margin: 16px 0 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+.currency-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.4s ease;
+}
+
+.team-progress-card p,
+.admin-team-heading p,
+.team-history p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.team-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.team-metric {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.team-metric strong {
+  font-size: 24px;
+}
+
+.team-metric small {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.team-history {
+  padding: 20px;
+}
+
+.team-history h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.team-history ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.team-history li {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.is-income {
+  color: #16a34a;
+}
+
+.is-expense {
+  color: #dc2626;
+}
+
+.admin-header {
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.admin-header-actions,
+.race-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.race-control-status {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.admin-team-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-team-card {
+  padding: 18px;
+}
+
+.admin-team-heading {
+  align-items: flex-start;
+}
+
+.admin-team-heading h2 {
+  margin: 0 0 4px;
+  font-size: 19px;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.admin-action-label {
+  width: 100%;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.currency-button {
+  min-width: 58px;
+  min-height: 44px;
+  border: 1px solid;
+  border-radius: 10px;
+  font-weight: 900;
+}
+
+.currency-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.currency-button-income {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.currency-button-expense {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 @media (max-width: 800px) {
   body {
     min-height: 100svh;
@@ -632,5 +1003,77 @@ body:has(.map-screen) {
 
   .material-symbols-rounded {
     font-size: 26px;
+  }
+
+  .race-status-panel {
+    top: 14px;
+    bottom: auto;
+    width: calc(100% - 90px);
+    max-width: 390px;
+    padding: 12px;
+  }
+
+  .race-status-heading h1 {
+    font-size: 18px;
+  }
+
+  .race-goal {
+    margin-top: 5px;
+    font-size: 10px;
+  }
+
+  .race-team-list {
+    margin-top: 8px;
+  }
+
+  .race-team-row {
+    min-height: 35px;
+    padding: 3px 5px;
+  }
+
+  .race-team-name,
+  .race-team-score strong {
+    font-size: 12px;
+  }
+
+  .team-panel,
+  .admin-panel {
+    padding: 20px 16px;
+  }
+
+  .admin-header {
+    display: grid;
+  }
+
+  .admin-header-actions {
+    align-items: stretch;
+  }
+
+  .race-control {
+    width: 100%;
+  }
+
+  .race-control .secondary-button {
+    flex: 1;
+  }
+
+  .team-title-row h1 {
+    font-size: 28px;
+  }
+
+  .team-metrics-grid {
+    gap: 8px;
+  }
+
+  .team-metric {
+    padding: 12px;
+  }
+
+  .team-metric strong {
+    font-size: 20px;
+  }
+
+  .currency-button {
+    flex: 1 1 54px;
   }
 }

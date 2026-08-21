@@ -5,11 +5,12 @@ export async function requestJson<T>(
   options: RequestInit = {},
 ): Promise<T> {
   let response: Response;
+  const { headers, ...requestOptions } = options;
 
   try {
     response = await fetch(`${env.apiBaseUrl}${path}`, {
-      headers: { "Content-Type": "application/json", ...options.headers },
-      ...options,
+      ...requestOptions,
+      headers: { "Content-Type": "application/json", ...headers },
     });
   } catch (error) {
     throw new Error("API接続に失敗しました", { cause: error });
